@@ -1,0 +1,60 @@
+{
+  "includeCoAuthoredBy": false,
+  "permissions": {
+    "allow": [
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git add *)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "Bash(git branch *)",
+      "Bash(* --version)",
+      "Bash(* --help)",
+      "Bash(ls)",
+      "Bash(ls *)",
+      "Bash(npx pnpm@10.18.3 *)",
+      "Bash(pnpm install)",
+      "Bash(pnpm test *)",
+      "Bash(pnpm test)",
+      "Bash(pnpm typecheck)",
+      "Bash(pnpm lint)",
+      "Bash(pnpm lint *)",
+      "Bash(pnpm format *)",
+      "Bash(pnpm format:check)",
+      "Bash(pnpm build)",
+      "Bash(pnpm --filter * test)",
+      "Bash(pnpm --filter * test *)",
+      "Bash(pnpm --filter * typecheck)",
+      "Bash(pnpm exec vitest *)",
+      "Bash(pnpm exec tsc *)",
+      "Bash(pnpm turbo *)",
+      "Bash(arc-forge build *)",
+      "Bash(arc-forge test *)",
+      "Bash(arc-forge fmt *)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.local.tpl)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(./.certs/**)",
+      "Edit(./.env)",
+      "Edit(./.env.local.tpl)",
+      "Edit(**/*.pem)",
+      "Edit(**/*.key)",
+      "Edit(pnpm-lock.yaml)",
+      "Bash(git push *)",
+      "Bash(git reset --hard *)",
+      "Bash(git clean -fd*)",
+      "Bash(git commit *--no-verify*)",
+      "Bash(git commit *-n *)",
+      "Bash(sudo *)",
+      "Bash(chmod 777 *)"
+    ],
+    "ask": ["Bash(rm -rf *)"]
+  },
+  "enabledPlugins": {
+    "circle-skills@circle": true,
+    "frontend-design@anthropic-plugin-directory": true
+  }
+}

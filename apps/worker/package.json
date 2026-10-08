@@ -1,0 +1,20 @@
+{
+  "name": "@sentinel/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "vitest run --passWithNoTests",
+    "trace-once": "tsx --env-file-if-exists=../../.env scripts/trace-once.ts"
+  },
+  "dependencies": {
+    "viem": "^2.38.0",
+    "@sentinel/core": "workspace:*",
+    "@sentinel/chains": "workspace:*",
+    "@sentinel/config": "workspace:*"
+  }
+}

@@ -1,0 +1,13 @@
+#chore files
+bookmarks.md
+
+node_modules/
+dist/
+.next/
+.turbo/
+coverage/
+.env
+.env.*
+!.env.example
+contracts/out/
+contracts/cache/
