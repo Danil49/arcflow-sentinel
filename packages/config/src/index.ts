@@ -16,6 +16,26 @@ export const chainEnvSchema = z.object({
 });
 export type ChainEnv = z.infer<typeof chainEnvSchema>;
 
+export const workerEnvSchema = chainEnvSchema.extend({
+  DATABASE_URL: z.string().min(1),
+  WORKER_ID: z.string().min(1).optional(),
+  /** Comma-separated chains to tail passively (arc,base). Empty = trace-driven only. */
+  COLLECT: z
+    .string()
+    .default("")
+    .transform((v) =>
+      v
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+    )
+    .pipe(z.array(z.enum(["arc", "base"]))),
+  /** First block for a collector stream with no cursor yet; defaults to the current head. */
+  ARC_START_BLOCK: z.coerce.bigint().nonnegative().optional(),
+  BASE_START_BLOCK: z.coerce.bigint().nonnegative().optional(),
+});
+export type WorkerEnv = z.infer<typeof workerEnvSchema>;
+
 export class EnvError extends Error {
   override name = "EnvError";
 }

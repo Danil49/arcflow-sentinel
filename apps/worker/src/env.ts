@@ -1,6 +1,6 @@
 import { createRouteClient, routeChains, type RouteChain } from "@sentinel/chains";
 import type { ChainEnv } from "@sentinel/config";
-import type { RouteSide } from "./trace.js";
+import type { RouteSide } from "./steps.js";
 
 /** Builds both route sides for the configured network, applying RPC and log-span overrides. */
 export function routeSidesFromEnv(env: ChainEnv): Record<RouteChain, RouteSide> {

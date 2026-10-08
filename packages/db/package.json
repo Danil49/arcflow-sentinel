@@ -1,0 +1,27 @@
+{
+  "name": "@sentinel/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./test/postgres.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "vitest run --passWithNoTests",
+    "generate": "drizzle-kit generate",
+    "migrate": "tsx --env-file-if-exists=../../.env src/migrate-cli.ts"
+  },
+  "devDependencies": {
+    "@testcontainers/postgresql": "^11.14.0",
+    "@types/pg": "^8.23.1",
+    "drizzle-kit": "^0.31.11",
+    "testcontainers": "^11.14.0"
+  },
+  "dependencies": {
+    "@sentinel/core": "workspace:*",
+    "drizzle-orm": "^0.44.7",
+    "pg": "^8.23.1"
+  }
+}

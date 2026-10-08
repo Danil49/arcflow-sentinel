@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-Phase 1 (skeleton and protocol spike) of the plan in `idea.md` is done. The Next.js app, DB, contract, and evidence packages don't exist yet. Other reference files:
+Phases 1 (skeleton/spike) and 2 (persistence, job queue, collectors) of the plan in `idea.md` are done. The lifecycle reducer and invariants (Phase 3), the Next.js app/API, evidence, and the contract don't exist yet. Other reference files:
 
 - `idea.md`: the product spec and source of truth. It defines scope, architecture, data model, invariants, API, contract, and a 7-day plan.
 - `docs-references.md`: an index (llms.txt style) of Arc docs. Use it to find the right Arc page to fetch.
@@ -19,7 +19,12 @@ pnpm isn't installed globally here, so run it as `npx pnpm@10.18.3 …` (the ver
 - `pnpm lint`, `pnpm format`, `pnpm format:check`
 - One package: `pnpm --filter @sentinel/core test`
 - One test: `pnpm --filter @sentinel/core exec vitest run test/message.test.ts -t "rejects truncated"`
-- Live spike: `pnpm --filter @sentinel/worker trace-once <sourceTxHash> --from base|arc [--save fixtures/<name>]`. This hits public RPCs and Iris. Settings come from an optional root `.env` (see `.env.example`).
+- Live spike (no DB): `pnpm --filter @sentinel/worker trace-once <sourceTxHash> --from base|arc [--save fixtures/<name>]`.
+- DB migrations: `pnpm --filter @sentinel/db migrate`. After a schema change, regenerate them with `pnpm --filter @sentinel/db generate --name <slug>`.
+- Worker: `pnpm --filter @sentinel/worker start`. This runs the job loop, plus the collectors listed in `COLLECT`.
+- Create a trace (stand-in for `POST /api/traces`): `pnpm --filter @sentinel/worker create-trace <sourceTxHash> --from base|arc`.
+- Scripts read the root `.env` (see `.env.example`). Variables already set in the shell take precedence over it.
+- The `db` and `worker` tests start Postgres through testcontainers (`postgres:17-alpine`). They work with Podman via `/var/run/docker.sock`; Ryuk is disabled automatically.
 
 ## Code layout
 
@@ -31,7 +36,19 @@ pnpm isn't installed globally here, so run it as `npx pnpm@10.18.3 …` (the ver
   - Domain event types and the lifecycle state enum
 - `packages/chains`: per-network route config (Arc and Base addresses, domains, USDC, log chunk sizes, with source-doc comments), viem clients, `findBlockAtOrAfter`, and `getLogsChunked`.
 - `packages/config`: zod env parsing. Errors name the variables but never echo their values.
-- `apps/worker`: the Iris client and `traceOnce`. These are I/O shells over core, with deps injected so they can be tested with fakes.
+- `packages/db`: Drizzle schema plus generated SQL migrations in `drizzle/`, the repositories, and the job queue (`jobs.ts`). `@sentinel/db/testing` exports `startTestDb()`.
+  - All writes are idempotent upserts.
+  - Rows dropped by a reorg are marked `removed`, never deleted. Re-observing the same log revives the row.
+  - A job's `dedupeKey` is unique only while the job is queued or running.
+- `apps/worker`: I/O shells over core. Deps are injected, so tests use the fakes in `test/fakes.ts`.
+  - `steps.ts`: the reusable trace steps.
+  - `services.ts`:
+    - `createTraces` is idempotent and enqueues `trace.refresh`.
+    - `refreshTrace` is incremental and returns either `done` or `wait`. A `wait` carries the next payload, such as how far the destination chain has been searched.
+  - `collector.ts`: tails the CCTP contracts.
+    - The cursor, block hashes, events and `trace.create` jobs commit in one transaction (an outbox), so a crash re-reads the chunk instead of skipping or duplicating it.
+    - Reorg checks are on for Base and off for Arc, which has deterministic finality.
+  - `runner.ts`: the job loop. A `wait` result requeues the job and resets its attempt counter. Only thrown errors count toward dead-lettering.
 
 Packages export their TypeScript sources directly (`exports: ./src/index.ts`) with no build step. Relative imports use `.js` extensions (NodeNext).
 
@@ -45,9 +62,11 @@ Packages export their TypeScript sources directly (`exports: ./src/index.ts`) wi
 - `MintAndWithdraw` is emitted by TokenMessengerV2 on the destination chain and includes `feeCollected`.
 - Within a network, the CCTP V2 contract addresses are the same on Arc and Base. Arc is domain 26 and Base is domain 6.
 - Iris returns `"PENDING"` and `"0x"` placeholders before attestation. `parseIrisMessages` maps them to null. Iris returns HTTP 404 when it hasn't indexed a transaction yet.
-- Public RPC limits:
-  - Base `mainnet.base.org` caps `eth_getLogs` at a 500-block range.
-  - `rpc.mainnet.arc.io` rate-limits bursts (`-32005`).
+- RPC limits:
+  - The configured paid RPCs are on a free tier that caps `eth_getLogs` at a **10-block** range. Set `ARC_LOG_CHUNK_SIZE`/`BASE_LOG_CHUNK_SIZE` to match.
+  - Base's public RPC caps the range at 500 blocks. Both public RPCs rate-limit bursts.
+  - Never design a feature around wide log scans. To find a destination mint, binary-search `MessageTransmitterV2.usedNonces(nonce)` with historical `eth_call` (`findNonceUsedBlock`, about 25 calls), then read logs from that single block. This needs archive state, which the paid RPCs have.
+- Block times: Arc ≈ 0.51 s, Base ≈ 2.0 s.
 
 ## Planned architecture (from idea.md)
 
