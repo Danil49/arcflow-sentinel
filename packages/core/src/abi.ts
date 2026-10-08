@@ -16,3 +16,8 @@ export const messageTransmitterV2Abi = parseAbi([
 ]);
 
 export const cctpV2EventsAbi = [...tokenMessengerV2Abi, ...messageTransmitterV2Abi] as const;
+
+/** Read-only MessageTransmitterV2 state used to locate a mint without wide log scans. */
+export const messageTransmitterV2ReadAbi = parseAbi([
+  "function usedNonces(bytes32 nonce) view returns (uint256)",
+]);

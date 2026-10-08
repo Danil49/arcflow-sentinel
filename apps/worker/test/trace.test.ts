@@ -16,9 +16,22 @@ const SRC = sourceReceipt.transactionHash as Hex;
 const DST = destinationReceipt.transactionHash as Hex;
 const chains = routeChains("mainnet");
 
-/** Minimal PublicClient fake: block timestamp == block number, logs served from receipts. */
+/**
+ * Minimal PublicClient fake: block timestamp == block number, logs served from the given list,
+ * and usedNonces(nonce) flips to 1 at the block of the matching MessageReceived log.
+ */
 function fakeClient(receipts: Record<string, unknown>, head: bigint, logs: unknown[] = []) {
+  const usedAt = new Map(
+    (logs as { topics: Hex[]; blockNumber: Hex }[]).map((l) => [
+      l.topics[2],
+      BigInt(l.blockNumber),
+    ]),
+  );
   return {
+    readContract: async ({ args, blockNumber }: { args: [Hex]; blockNumber: bigint }) => {
+      const at = usedAt.get(args[0]);
+      return at !== undefined && blockNumber >= at ? 1n : 0n;
+    },
     request: async ({ params }: { params: [Hex] }) => receipts[params[0]] ?? null,
     getBlock: async ({ blockNumber }: { blockNumber: bigint }) => ({ timestamp: blockNumber }),
     getBlockNumber: async () => head,
@@ -47,7 +60,6 @@ const deps = (irisResponse: IrisMessagesResponse | null) => ({
     ),
   },
   iris: irisClient(irisResponse),
-  maxDestinationBlocks: 10_000n,
 });
 
 describe("traceOnce", () => {

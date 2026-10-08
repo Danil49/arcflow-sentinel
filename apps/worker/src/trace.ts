@@ -10,7 +10,7 @@ import {
   type LifecycleState,
   type RpcLog,
 } from "@sentinel/core";
-import { findBlockAtOrAfter, getLogsChunked, type RouteChainConfig } from "@sentinel/chains";
+import { findBlockAtOrAfter, findNonceUsedBlock, type RouteChainConfig } from "@sentinel/chains";
 import type { IrisClient } from "./iris.js";
 
 export interface RouteSide {
@@ -22,8 +22,6 @@ export interface TraceOnceDeps {
   source: RouteSide;
   destination: RouteSide;
   iris: IrisClient;
-  /** How far past the source block time to scan the destination chain for the mint. */
-  maxDestinationBlocks: bigint;
   now?: () => Date;
 }
 
@@ -94,22 +92,27 @@ export async function traceOnce(sourceTxHash: Hex, deps: TraceOnceDeps): Promise
   };
   if (!attestation) return result;
 
-  // The nonce only exists once attested, so the destination mint is found by nonce, scanning
-  // forward from the source block's timestamp (mints cannot precede the burn).
+  // The nonce only exists once attested. The mint cannot precede the burn, so search the
+  // destination from the source block's timestamp: binary-search usedNonces for the block that
+  // consumed the nonce, then read MessageReceived from that single block.
   const sourceBlock = await source.client.getBlock({ blockNumber: burn.blockNumber });
   const fromBlock = await findBlockAtOrAfter(destination.client, sourceBlock.timestamp);
   const head = await destination.client.getBlockNumber();
-  const toBlock =
-    fromBlock + deps.maxDestinationBlocks < head ? fromBlock + deps.maxDestinationBlocks : head;
+  const usedAt = await findNonceUsedBlock(
+    destination.client,
+    destination.config.messageTransmitter,
+    attestation.nonce!,
+    fromBlock,
+    head,
+  );
+  if (usedAt === null) return result;
 
-  const [received] = await getLogsChunked(destination.client, {
+  const [received] = await destination.client.getLogs({
     address: destination.config.messageTransmitter,
     event: messageReceivedEvent,
-    args: { nonce: attestation.nonce },
-    fromBlock,
-    toBlock,
-    chunkSize: destination.config.logChunkSize,
-    stopOnFirst: true,
+    args: { nonce: attestation.nonce! },
+    fromBlock: usedAt,
+    toBlock: usedAt,
   });
   if (!received?.transactionHash) return result;
 

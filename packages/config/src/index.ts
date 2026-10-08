@@ -7,6 +7,11 @@ export const chainEnvSchema = z.object({
   CCTP_NETWORK: z.enum(["mainnet", "testnet"]).default("mainnet"),
   ARC_RPC_URL: url.optional(),
   BASE_RPC_URL: url.optional(),
+  TESTNET_ARC_RPC_URL: url.optional(),
+  TESTNET_BASE_RPC_URL: url.optional(),
+  /** Override the max eth_getLogs block span for your RPC tier (some free tiers allow only 10). */
+  ARC_LOG_CHUNK_SIZE: z.coerce.bigint().positive().optional(),
+  BASE_LOG_CHUNK_SIZE: z.coerce.bigint().positive().optional(),
   IRIS_BASE_URL: url.optional(),
 });
 export type ChainEnv = z.infer<typeof chainEnvSchema>;

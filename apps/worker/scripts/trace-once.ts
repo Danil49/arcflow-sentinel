@@ -7,39 +7,33 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { formatUnits, isHash, type Hex } from "viem";
 import { bytes32ToAddress } from "@sentinel/core";
-import { createRouteClient, IRIS_BASE_URL, routeChains, type RouteChain } from "@sentinel/chains";
+import { IRIS_BASE_URL, type RouteChain } from "@sentinel/chains";
 import { chainEnvSchema, parseEnv } from "@sentinel/config";
-import { createIrisClient, traceOnce } from "../src/index.js";
+import { createIrisClient, routeSidesFromEnv, traceOnce } from "../src/index.js";
 
 const { positionals, values } = parseArgs({
   allowPositionals: true,
   options: {
     from: { type: "string", default: "base" },
     save: { type: "string" },
-    "max-blocks": { type: "string", default: "500000" },
   },
 });
 const [txHash] = positionals;
 if (!txHash || !isHash(txHash) || (values.from !== "base" && values.from !== "arc")) {
-  console.error("usage: trace-once <sourceTxHash> --from base|arc [--save <dir>] [--max-blocks N]");
+  console.error("usage: trace-once <sourceTxHash> --from base|arc [--save <dir>]");
   process.exit(2);
 }
 
 const env = parseEnv(chainEnvSchema);
-const chains = routeChains(env.CCTP_NETWORK);
+const sides = routeSidesFromEnv(env);
+const chains = { arc: sides.arc.config, base: sides.base.config };
 const from = values.from as RouteChain;
 const to: RouteChain = from === "base" ? "arc" : "base";
-const rpc = { arc: env.ARC_RPC_URL, base: env.BASE_RPC_URL };
-const side = (k: RouteChain) => ({
-  config: chains[k],
-  client: createRouteClient(chains[k], rpc[k]),
-});
 
 const result = await traceOnce(txHash as Hex, {
-  source: side(from),
-  destination: side(to),
+  source: sides[from],
+  destination: sides[to],
   iris: createIrisClient(env.IRIS_BASE_URL ?? IRIS_BASE_URL[env.CCTP_NETWORK]),
-  maxDestinationBlocks: BigInt(values["max-blocks"]),
 });
 
 const usdc = (v: bigint) => `${formatUnits(v, 6)} USDC`;
