@@ -1,0 +1,30 @@
+{
+  "name": "@sentinel/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc -p . --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@sentinel/chains": "workspace:*",
+    "@sentinel/config": "workspace:*",
+    "@sentinel/core": "workspace:*",
+    "@sentinel/db": "workspace:*",
+    "@sentinel/worker": "workspace:*",
+    "drizzle-orm": "^0.44.7",
+    "next": "^15.5.27",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "viem": "^2.57.3",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0"
+  }
+}

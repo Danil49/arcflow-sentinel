@@ -4,7 +4,8 @@
  */
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { sql } from "drizzle-orm";
-import { connect, runMigrations, type DbHandle } from "../src/index.js";
+import { connect, type DbHandle } from "../src/index.js";
+import { runMigrations } from "../src/migrate.js";
 
 process.env.TESTCONTAINERS_RYUK_DISABLED ??= "true";
 

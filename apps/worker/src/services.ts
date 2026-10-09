@@ -150,10 +150,14 @@ function eventsForBurn(
   return sent ? [burn, sent] : [burn];
 }
 
-/** Re-derives a trace's status from stored evidence and persists it (no network calls). */
+/**
+ * Re-derives a trace's status from stored evidence (no network calls). With `persist`, saves it
+ * and emits a webhook on change; without, it only tells the caller what evidence is missing.
+ */
 export async function reevaluateTrace(
   deps: Pick<PipelineDeps, "db" | "now" | "deadlines" | "webhooks">,
   traceId: string,
+  opts: { persist?: boolean } = { persist: true },
 ): Promise<{ trace: TraceRow; result: LifecycleResult }> {
   const trace = await getTrace(deps.db, traceId);
   if (!trace) throw new Error(`trace ${traceId} not found`);
@@ -164,7 +168,9 @@ export async function reevaluateTrace(
     (deps.now ?? (() => new Date()))(),
     deps.deadlines ?? DEFAULT_DEADLINES,
   );
-  await saveLifecycle(deps.db, traceId, result, webhookOutbox(deps.webhooks ?? null));
+  if (opts.persist !== false) {
+    await saveLifecycle(deps.db, traceId, result, webhookOutbox(deps.webhooks ?? null));
+  }
   return { trace, result };
 }
 
@@ -177,8 +183,9 @@ const STAGE_RANK = (s: LifecycleState) =>
 
 /**
  * One refresh step: fetch whatever evidence the current stage is waiting for, then re-derive the
- * status with the pure reducer and persist it. Every write is idempotent, so running it
- * repeatedly or concurrently with the collector is safe.
+ * status with the pure reducer and persist it. Status is persisted only after fetching, so a trace
+ * submitted late (old burn, no evidence stored yet) is never reported STUCK before we have looked.
+ * Every write is idempotent, so running it repeatedly or concurrently with the collector is safe.
  */
 export async function refreshTrace(
   deps: PipelineDeps,
@@ -186,7 +193,7 @@ export async function refreshTrace(
 ): Promise<RefreshOutcome> {
   const now = deps.now ?? (() => new Date());
   const poll = { ...DEFAULT_POLL, ...deps.pollMs };
-  const before = await reevaluateTrace(deps, payload.traceId);
+  const before = await reevaluateTrace(deps, payload.traceId, { persist: false });
   const trace = before.trace;
   let next = payload;
 
@@ -207,7 +214,7 @@ export async function refreshTrace(
   }
 
   // Attested: find the destination completion (collector may already have it).
-  const mid = await reevaluateTrace(deps, trace.id);
+  const mid = await reevaluateTrace(deps, trace.id, { persist: false });
   if (mid.result.progress === "ATTESTED" && mid.result.nonce) {
     const destChainId = deps.destination.config.chain.id;
     const known = await findReceivedEventByNonce(deps.db, destChainId, mid.result.nonce);

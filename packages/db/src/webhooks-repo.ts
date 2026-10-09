@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, lt, sql } from "drizzle-orm";
 import { toJsonSafe } from "@sentinel/core";
 import type { Tx } from "./repo.js";
 import { webhookDeliveries } from "./schema.js";
@@ -50,4 +50,22 @@ export async function recordDeliveryAttempt(
       ...(outcome.status === "delivered" ? { deliveredAt: new Date() } : {}),
     })
     .where(and(eq(webhookDeliveries.id, id), eq(webhookDeliveries.status, "pending")));
+}
+
+/** True if an earlier event for the same trace and endpoint is still pending (ordering guard). */
+export async function hasEarlierPending(db: Tx, d: WebhookDeliveryRow): Promise<boolean> {
+  if (!d.traceId) return false;
+  const [row] = await db
+    .select({ id: webhookDeliveries.id })
+    .from(webhookDeliveries)
+    .where(
+      and(
+        eq(webhookDeliveries.traceId, d.traceId),
+        eq(webhookDeliveries.url, d.url),
+        eq(webhookDeliveries.status, "pending"),
+        lt(webhookDeliveries.sequence, d.sequence),
+      ),
+    )
+    .limit(1);
+  return Boolean(row);
 }

@@ -2,6 +2,7 @@ import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import {
   enqueueJob,
   getDelivery,
+  hasEarlierPending,
   insertDeliveries,
   recordDeliveryAttempt,
   type JobRow,
@@ -128,8 +129,10 @@ export async function enqueueTestWebhook(tx: Tx, config: WebhookConfig): Promise
 }
 
 /**
- * Delivers one webhook. Non-2xx and network errors throw, so the job queue retries with backoff;
- * the final attempt marks the delivery dead. Redirects are not followed (a 3xx is a failure).
+ * Delivers one webhook. Events for one trace reach each endpoint in sequence order (a later event
+ * waits while an earlier one is pending). Non-2xx and network errors throw, so the job queue
+ * retries with backoff; the final attempt marks the delivery dead (which unblocks later events).
+ * Redirects are not followed (a 3xx is a failure).
  */
 export function createWebhookHandler(
   db: Tx,
@@ -140,6 +143,8 @@ export function createWebhookHandler(
     const { deliveryId } = job.payload as { deliveryId: string };
     const delivery = await getDelivery(db, BigInt(deliveryId));
     if (!delivery || delivery.status !== "pending") return { kind: "done" };
+    // Per (trace, endpoint) ordering: wait until earlier events are delivered or dead.
+    if (await hasEarlierPending(db, delivery)) return { kind: "wait", delayMs: 1_000 };
 
     const body = JSON.stringify(delivery.payload);
     const timestamp = Math.floor(Date.now() / 1000);

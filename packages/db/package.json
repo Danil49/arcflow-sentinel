@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./testing": "./test/postgres.ts"
+    "./testing": "./test/postgres.ts",
+    "./migrate": "./src/migrate.ts"
   },
   "scripts": {
     "typecheck": "tsc -p .",

@@ -262,7 +262,7 @@ describe("webhook outbox", () => {
     const id = (await createTraces(d, SRC)).traces[0]!.id;
     await refresh(d, id); // SOURCE_OBSERVED -> SOURCE_OBSERVED: no change
     await refresh(d, id); // -> FINALITY_WAIT
-    await refresh(d, id); // -> ATTESTED -> MINT_CONFIRMED
+    await refresh(d, id); // -> MINT_CONFIRMED (attested and minted in one refresh: one change)
 
     const rows = await t.db.select().from(webhookDeliveries).orderBy(asc(webhookDeliveries.id));
     const perUrl = rows.filter((r) => r.url.endsWith("/a"));
@@ -270,13 +270,22 @@ describe("webhook outbox", () => {
       perUrl.map((r) => [r.sequence, (r.payload as { data: { status: string } }).data.status]),
     ).toEqual([
       [1, "FINALITY_WAIT"],
-      [2, "ATTESTED"],
-      [3, "MINT_CONFIRMED"],
+      [2, "MINT_CONFIRMED"],
     ]);
-    expect(rows).toHaveLength(6);
-    expect(new Set(rows.map((r) => r.eventId)).size).toBe(3);
+    expect(rows).toHaveLength(4);
+    expect(new Set(rows.map((r) => r.eventId)).size).toBe(2);
     const deliverJobs = (await t.db.select().from(jobs)).filter((j) => j.type === WEBHOOK_DELIVER);
-    expect(deliverJobs).toHaveLength(6);
+    expect(deliverJobs).toHaveLength(4);
+  });
+
+  it("a trace submitted long after its burn is never reported STUCK before evidence is fetched", async () => {
+    const d = deps(staticIris(iris), { minutesAfterBurn: 600, webhooks: true });
+    const id = (await createTraces(d, SRC)).traces[0]!.id;
+    expect(await refresh(d, id)).toEqual({ kind: "done", status: "MINT_CONFIRMED" });
+    const statuses = (await t.db.select().from(webhookDeliveries))
+      .filter((r) => r.url.endsWith("/a"))
+      .map((r) => (r.payload as { data: { status: string } }).data.status);
+    expect(statuses).toEqual(["MINT_CONFIRMED"]);
   });
 
   it("no endpoints configured: no deliveries", async () => {

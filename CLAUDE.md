@@ -4,7 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-Phases 1 (skeleton/spike) and 2 (persistence, job queue, collectors) of the plan in `idea.md` are done. The lifecycle reducer and invariants (Phase 3), the Next.js app/API, evidence, and the contract don't exist yet. Other reference files:
+Phases 1–3 of the plan in `idea.md` are done:
+
+- 1: skeleton and spike
+- 2: persistence, job queue and collectors
+- 3: lifecycle reducer, invariants, webhooks and the REST API
+
+Not built yet: the trace UI, evidence bundles (Phase 4), the `EvidenceRegistry` contract and anchoring (Phase 5), and hardening such as rate limiting (Phase 6). Other reference files:
 
 - `idea.md`: the product spec and source of truth. It defines scope, architecture, data model, invariants, API, contract, and a 7-day plan.
 - `docs-references.md`: an index (llms.txt style) of Arc docs. Use it to find the right Arc page to fetch.
@@ -22,7 +28,9 @@ pnpm isn't installed globally here, so run it as `npx pnpm@10.18.3 …` (the ver
 - Live spike (no DB): `pnpm --filter @sentinel/worker trace-once <sourceTxHash> --from base|arc [--save fixtures/<name>]`.
 - DB migrations: `pnpm --filter @sentinel/db migrate`. After a schema change, regenerate them with `pnpm --filter @sentinel/db generate --name <slug>`.
 - Worker: `pnpm --filter @sentinel/worker start`. This runs the job loop, plus the collectors listed in `COLLECT`.
-- Create a trace (stand-in for `POST /api/traces`): `pnpm --filter @sentinel/worker create-trace <sourceTxHash> --from base|arc`.
+- Create a trace without the API: `pnpm --filter @sentinel/worker create-trace <sourceTxHash> --from base|arc`.
+- Web/API: `pnpm --filter @sentinel/web dev`, or `build` then `start`. `pnpm --filter @sentinel/web build` must keep passing, because it is the only check that the workspace packages bundle under webpack.
+- Example Arc→Base transfers, and how to find more: `docs/discovering-arc-to-base-transfers.md`.
 - Scripts read the root `.env` (see `.env.example`). Variables already set in the shell take precedence over it.
 - The `db` and `worker` tests start Postgres through testcontainers (`postgres:17-alpine`). They work with Podman via `/var/run/docker.sock`; Ryuk is disabled automatically.
 
@@ -49,6 +57,27 @@ pnpm isn't installed globally here, so run it as `npx pnpm@10.18.3 …` (the ver
     - The cursor, block hashes, events and `trace.create` jobs commit in one transaction (an outbox), so a crash re-reads the chunk instead of skipping or duplicating it.
     - Reorg checks are on for Base and off for Arc, which has deterministic finality.
   - `runner.ts`: the job loop. A `wait` result requeues the job and resets its attempt counter. Only thrown errors count toward dead-lettering.
+
+- `packages/core/src/lifecycle.ts`: `reduceLifecycle(ctx, events, now, deadlines)` is the **only** place status is decided.
+  - It is pure. It dedupes by log identity, so input order and repetition don't matter, and adding evidence never moves progress backwards.
+  - `status` is the progress stage, or `FAILED_OR_STUCK` with a `reason`:
+    - `FAILED` means an integrity invariant failed. It is terminal.
+    - `STUCK` means a stage deadline passed. It is not terminal, and the trace recovers when evidence arrives.
+  - When sources disagree about the same log, that's reported as an anomaly. It makes the integrity invariants `UNKNOWN`; it never produces `FAILED`.
+  - If no attested message matches the burn, all messages are still evaluated, so a tampered message gets caught instead of filtered out.
+  - Deadlines are measured from chain or observation time. Defaults are in `DEFAULT_DEADLINES`; override them with `STAGE_DEADLINES_JSON` (minutes).
+- `APPLICATION_CONFIRMED` is opt-in per trace (`requireAppConfirmation`, which needs an API key). The integrating app sets it with an authenticated `POST /api/traces/{id}/confirm`. Without the opt-in, `MINT_CONFIRMED` is the terminal success state.
+- Persistence: `saveLifecycle` locks the trace row, upserts the invariant results, and calls the webhook outbox in the same transaction.
+- `refreshTrace` persists only after fetching evidence, so a late-submitted old burn is never reported `STUCK` before it has been looked at.
+- Webhooks (`apps/worker/src/webhooks.ts`):
+  - Endpoints come from env (`WEBHOOK_URLS`). There's one `webhook_deliveries` row per (event, URL) and one `webhook.deliver` job per row.
+  - Each delivery is signed: `x-sentinel-signature: v1=HMAC(secret, "${ts}.${body}")`.
+  - Delivery is in sequence order per (trace, URL). Redirects are never followed. A delivery is marked dead after 10 attempts.
+- `apps/web`: Next.js 15 route handlers in `app/api/**/route.ts`. They are thin wrappers over `src/api/*.ts`, which take an injected `ApiContext`, so tests call them directly.
+  - Errors are RFC 7807 problems. Internal errors return only an error id.
+  - Privileged endpoints use `Authorization: Bearer <API_KEYS entry>`.
+  - `GET /api/openapi.json` is generated from the same zod schemas the handlers validate with.
+  - Migrations live behind the `@sentinel/db/migrate` subpath so the web bundle never includes the SQL folder.
 
 Packages export their TypeScript sources directly (`exports: ./src/index.ts`) with no build step. Relative imports use `.js` extensions (NodeNext).
 

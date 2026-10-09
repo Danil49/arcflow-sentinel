@@ -2,9 +2,13 @@ import { createServer, type IncomingHttpHeaders, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { claimJobs, jobs, webhookDeliveries } from "@sentinel/db";
+import { asc } from "drizzle-orm";
+import { routeChains } from "@sentinel/chains";
+import { decodeCctpLogs, fromRpcLog, type BurnObserved } from "@sentinel/core";
+import { claimJobs, jobs, upsertTraceFromBurn, webhookDeliveries } from "@sentinel/db";
 import { startTestDb, type TestDb } from "@sentinel/db/testing";
 import {
+  webhookOutbox,
   enqueueTestWebhook,
   runBatch,
   signWebhook,
@@ -14,6 +18,8 @@ import {
   createHandlers,
   type WebhookConfig,
 } from "../src/index.js";
+
+import { sourceReceipt } from "./fakes.js";
 
 const SECRET = "k".repeat(40);
 let t: TestDb;
@@ -124,6 +130,44 @@ describe("webhook delivery", () => {
     const [job] = await t.db.select().from(jobs);
     expect(job).toMatchObject({ type: WEBHOOK_DELIVER, status: "done" });
     expect(await claimJobs(t.db, "w")).toHaveLength(0);
+  });
+
+  it("delivers events for one trace in sequence order, even when queued together", async () => {
+    const burn = decodeCctpLogs(
+      sourceReceipt.logs.map((l: never) => fromRpcLog(l, 8453)),
+      routeChains("mainnet").base,
+    ).find((e) => e.kind === "burn") as BurnObserved;
+    const { trace } = await upsertTraceFromBurn(t.db, burn, "SOURCE_OBSERVED");
+    const outbox = webhookOutbox(config());
+    const change = (sequence: number, status: string) => ({
+      previous: { status: "SOURCE_OBSERVED", reason: null },
+      trace,
+      sequence,
+      result: {
+        status,
+        progress: status,
+        reason: null,
+        statusReason: null,
+        destinationTxHash: null,
+        nonce: null,
+        invariants: [],
+      } as never,
+    });
+    await t.db.transaction(async (tx) => {
+      await outbox(tx, change(1, "FINALITY_WAIT"));
+      await outbox(tx, change(2, "ATTESTED"));
+      await outbox(tx, change(3, "MINT_CONFIRMED"));
+    });
+    for (let i = 0; i < 6 && received.length < 3; i++) {
+      await run();
+      await makeDue();
+    }
+    expect(received.map((r) => r.headers["x-sentinel-sequence"])).toEqual(["1", "2", "3"]);
+    const rows = await t.db
+      .select()
+      .from(webhookDeliveries)
+      .orderBy(asc(webhookDeliveries.sequence));
+    expect(rows.every((r) => r.status === "delivered" && r.attempts === 1)).toBe(true);
   });
 
   it("verifyWebhook rejects stale timestamps", () => {
