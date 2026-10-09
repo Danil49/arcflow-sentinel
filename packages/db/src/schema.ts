@@ -41,8 +41,22 @@ export const transferTraces = pgTable(
     sender: text("sender").notNull(),
     recipient: text("recipient").notNull(),
     amountAtomic: uint256("amount_atomic").notNull(),
+    sourceBlockTime: ts("source_block_time"),
+    /** Reported status from the lifecycle reducer (FAILED_OR_STUCK when flagged). */
     status: text("status").notNull(),
+    /** Furthest stage reached; differs from status only while FAILED_OR_STUCK. */
+    progress: text("progress").notNull().default("SOURCE_OBSERVED"),
+    /** STUCK | FAILED when status is FAILED_OR_STUCK. */
+    reason: text("reason"),
     statusReason: text("status_reason"),
+    destinationTxHash: text("destination_tx_hash"),
+    stageDeadlineAt: ts("stage_deadline_at"),
+    /** The integrating application must confirm (POST /confirm) before the trace completes. */
+    requireAppConfirmation: boolean("require_app_confirmation").notNull().default(false),
+    applicationConfirmedAt: ts("application_confirmed_at"),
+    applicationReference: text("application_reference"),
+    /** Last webhook sequence number issued for this trace (monotonic per trace). */
+    webhookSeq: integer("webhook_seq").notNull().default(0),
     firstSeenAt: ts("first_seen_at").notNull().defaultNow(),
     updatedAt: ts("updated_at").notNull().defaultNow(),
   },
@@ -52,6 +66,7 @@ export const transferTraces = pgTable(
       .on(t.sourceDomain, t.messageNonce)
       .where(sql`${t.messageNonce} is not null`),
     index("transfer_traces_status_idx").on(t.status),
+    index("transfer_traces_deadline_idx").on(t.stageDeadlineAt),
   ],
 );
 
@@ -162,5 +177,31 @@ export const jobs = pgTable(
     uniqueIndex("jobs_dedupe_live_uq")
       .on(t.dedupeKey)
       .where(sql`${t.dedupeKey} is not null and ${t.status} in ('queued', 'running')`),
+  ],
+);
+
+export const WEBHOOK_DELIVERY_STATUSES = ["pending", "delivered", "dead"] as const;
+
+/** Outbox of webhook deliveries: one row per (event, endpoint), written with the status change. */
+export const webhookDeliveries = pgTable(
+  "webhook_deliveries",
+  {
+    id: bigserial("id", { mode: "bigint" }).primaryKey(),
+    eventId: uuid("event_id").notNull(),
+    eventType: text("event_type").notNull(),
+    traceId: uuid("trace_id").references(() => transferTraces.id),
+    sequence: integer("sequence").notNull(),
+    url: text("url").notNull(),
+    payload: jsonb("payload").notNull(),
+    status: text("status", { enum: WEBHOOK_DELIVERY_STATUSES }).notNull().default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    lastStatusCode: integer("last_status_code"),
+    lastError: text("last_error"),
+    deliveredAt: ts("delivered_at"),
+    createdAt: ts("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("webhook_deliveries_event_url_uq").on(t.eventId, t.url),
+    index("webhook_deliveries_trace_idx").on(t.traceId, t.sequence),
   ],
 );

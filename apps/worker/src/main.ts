@@ -7,6 +7,8 @@ import { routeSidesFromEnv } from "./env.js";
 import { createHandlers } from "./handlers.js";
 import { createIrisClient } from "./iris.js";
 import { runJobs } from "./runner.js";
+import { resolveDeadlines } from "./services.js";
+import type { WebhookConfig } from "./webhooks.js";
 
 const log = (msg: string, fields: Record<string, unknown> = {}) =>
   console.log(JSON.stringify({ ts: new Date().toISOString(), msg, ...fields }));
@@ -17,9 +19,14 @@ const { db, close } = connect(env.DATABASE_URL);
 const sides = routeSidesFromEnv(env);
 const iris = createIrisClient(env.IRIS_BASE_URL ?? IRIS_BASE_URL[env.CCTP_NETWORK]);
 
+const deadlines = resolveDeadlines(env.STAGE_DEADLINES_JSON);
+const webhooks: WebhookConfig | null = env.WEBHOOK_URLS.length
+  ? { urls: env.WEBHOOK_URLS, secret: env.WEBHOOK_SECRET!, timeoutMs: env.WEBHOOK_TIMEOUT_MS }
+  : null;
+const common = { db, iris, deadlines, webhooks };
 const directions = {
-  [sides.base.config.domain]: { db, source: sides.base, destination: sides.arc, iris },
-  [sides.arc.config.domain]: { db, source: sides.arc, destination: sides.base, iris },
+  [sides.base.config.domain]: { ...common, source: sides.base, destination: sides.arc },
+  [sides.arc.config.domain]: { ...common, source: sides.arc, destination: sides.base },
 };
 
 const abort = new AbortController();
@@ -69,9 +76,20 @@ const sleep = (ms: number) =>
     abort.signal.addEventListener("abort", () => (clearTimeout(t), r()), { once: true });
   });
 
-log("worker starting", { workerId, network: env.CCTP_NETWORK, collect: env.COLLECT });
+log("worker starting", {
+  workerId,
+  network: env.CCTP_NETWORK,
+  collect: env.COLLECT,
+  webhookEndpoints: webhooks?.urls.length ?? 0,
+});
 await Promise.all([
-  runJobs({ db, workerId, handlers: createHandlers(directions), signal: abort.signal, log }),
+  runJobs({
+    db,
+    workerId,
+    handlers: createHandlers(directions, { db, config: webhooks }),
+    signal: abort.signal,
+    log,
+  }),
   ...env.COLLECT.map(runCollector),
 ]);
 await close();

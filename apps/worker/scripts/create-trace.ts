@@ -26,7 +26,7 @@ const handle = connect(env.DATABASE_URL, 1);
 try {
   const [source, destination] =
     values.from === "base" ? [sides.base, sides.arc] : [sides.arc, sides.base];
-  const traces = await createTraces(
+  const { traces } = await createTraces(
     {
       db: handle.db,
       source,

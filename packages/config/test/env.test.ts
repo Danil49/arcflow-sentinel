@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chainEnvSchema, EnvError, parseEnv } from "../src/index.js";
+import { chainEnvSchema, EnvError, parseEnv, pipelineEnvSchema } from "../src/index.js";
 
 describe("parseEnv", () => {
   it("applies defaults", () => {
@@ -13,5 +13,45 @@ describe("parseEnv", () => {
     } catch (e) {
       expect((e as Error).message).not.toContain("not-a-url-secret");
     }
+  });
+});
+
+describe("pipelineEnvSchema", () => {
+  const base = { DATABASE_URL: "postgres://x" };
+
+  it("requires a strong secret when webhooks are configured", () => {
+    expect(() =>
+      parseEnv(pipelineEnvSchema, { ...base, WEBHOOK_URLS: "https://hooks.example.com/a" }),
+    ).toThrow(/WEBHOOK_SECRET/);
+    const env = parseEnv(pipelineEnvSchema, {
+      ...base,
+      WEBHOOK_URLS: "https://hooks.example.com/a, http://localhost:9000/b",
+      WEBHOOK_SECRET: "x".repeat(32),
+    });
+    expect(env.WEBHOOK_URLS).toEqual(["https://hooks.example.com/a", "http://localhost:9000/b"]);
+  });
+
+  it("rejects plain-http webhook endpoints outside localhost", () => {
+    expect(() =>
+      parseEnv(pipelineEnvSchema, {
+        ...base,
+        WEBHOOK_URLS: "http://hooks.example.com",
+        WEBHOOK_SECRET: "x".repeat(32),
+      }),
+    ).toThrow(/https/);
+  });
+
+  it("parses partial stage deadline overrides and rejects unknown keys", () => {
+    const env = parseEnv(pipelineEnvSchema, {
+      ...base,
+      STAGE_DEADLINES_JSON: '{"mint":180,"finality":{"standard":60}}',
+    });
+    expect(env.STAGE_DEADLINES_JSON).toEqual({ mint: 180, finality: { standard: 60 } });
+    expect(() =>
+      parseEnv(pipelineEnvSchema, { ...base, STAGE_DEADLINES_JSON: '{"nope":1}' }),
+    ).toThrow();
+    expect(() => parseEnv(pipelineEnvSchema, { ...base, STAGE_DEADLINES_JSON: "{bad" })).toThrow(
+      /JSON/,
+    );
   });
 });

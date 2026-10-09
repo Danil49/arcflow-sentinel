@@ -26,10 +26,17 @@ export type ObservedEventRow = typeof observedEvents.$inferSelect;
 // ---- traces ---------------------------------------------------------------------------------
 
 /** Idempotent: the same burn log always maps to the same trace. */
+export interface TraceOptions {
+  sourceBlockTime?: Date | null;
+  /** Opt-in only: a later request can turn it on for an existing trace, never off. */
+  requireAppConfirmation?: boolean;
+}
+
 export async function upsertTraceFromBurn(
   db: Tx,
   burn: BurnObserved,
   status: LifecycleState,
+  opts: TraceOptions = {},
 ): Promise<{ trace: TraceRow; created: boolean }> {
   const [inserted] = await db
     .insert(transferTraces)
@@ -44,6 +51,9 @@ export async function upsertTraceFromBurn(
       recipient: bytes32ToAddress(burn.mintRecipient),
       amountAtomic: burn.amount,
       status,
+      progress: status,
+      sourceBlockTime: opts.sourceBlockTime ?? null,
+      requireAppConfirmation: opts.requireAppConfirmation ?? false,
     })
     .onConflictDoNothing()
     .returning();
@@ -60,6 +70,14 @@ export async function upsertTraceFromBurn(
       ),
     );
   if (!existing) throw new Error("trace upsert conflicted but no row found");
+  if (opts.requireAppConfirmation && !existing.requireAppConfirmation) {
+    const [upgraded] = await db
+      .update(transferTraces)
+      .set({ requireAppConfirmation: true, updatedAt: new Date() })
+      .where(eq(transferTraces.id, existing.id))
+      .returning();
+    return { trace: upgraded!, created: false };
+  }
   return { trace: existing, created: false };
 }
 

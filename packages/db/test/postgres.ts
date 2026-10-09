@@ -23,7 +23,7 @@ export async function startTestDb(): Promise<TestDb> {
     container,
     reset: async () => {
       await handle.db.execute(sql`truncate table invariant_results, attestation_observations,
-        observed_events, transfer_traces, chain_blocks, chain_cursors, jobs restart identity cascade`);
+        observed_events, webhook_deliveries, transfer_traces, chain_blocks, chain_cursors, jobs restart identity cascade`);
     },
     stop: async () => {
       await handle.close();

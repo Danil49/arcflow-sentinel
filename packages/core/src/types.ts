@@ -36,6 +36,8 @@ export interface LogRef {
   blockHash: Hex;
   txHash: Hex;
   logIndex: number;
+  /** When Sentinel first stored this log (set when loaded from the DB; used for stage timing). */
+  observedAt?: Date;
 }
 
 export interface BurnObserved extends LogRef {
@@ -96,13 +98,3 @@ export interface AttestationObserved {
 }
 
 export type DomainEvent = ChainEvent | AttestationObserved;
-
-const STATE_RANK = new Map(LIFECYCLE_STATES.map((s, i) => [s, i]));
-
-/**
- * Monotonic status update: never moves a trace backwards. FAILED_OR_STUCK ranks last, so it is
- * only left again by explicit recovery logic (Phase 3 reducer), not by stale observations.
- */
-export function advanceState(current: LifecycleState, next: LifecycleState): LifecycleState {
-  return STATE_RANK.get(next)! > STATE_RANK.get(current)! ? next : current;
-}

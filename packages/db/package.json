@@ -22,6 +22,7 @@
   "dependencies": {
     "@sentinel/core": "workspace:*",
     "drizzle-orm": "^0.44.7",
-    "pg": "^8.23.1"
+    "pg": "^8.23.1",
+    "viem": "^2.57.3"
   }
 }

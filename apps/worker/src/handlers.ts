@@ -1,4 +1,4 @@
-import type { JobRow } from "@sentinel/db";
+import type { Db, JobRow } from "@sentinel/db";
 import { TRACE_CREATE, type TraceCreatePayload } from "./collector.js";
 import type { JobHandler, JobResult } from "./runner.js";
 import {
@@ -8,6 +8,7 @@ import {
   type PipelineDeps,
   type TraceRefreshPayload,
 } from "./services.js";
+import { createWebhookHandler, WEBHOOK_DELIVER, type WebhookConfig } from "./webhooks.js";
 
 /** Pipeline deps per route direction, keyed by source CCTP domain. */
 export type Directions = Record<number, PipelineDeps>;
@@ -18,8 +19,11 @@ const forDomain = (directions: Directions, domain: number) => {
   return deps;
 };
 
-export function createHandlers(directions: Directions): Record<string, JobHandler> {
-  return {
+export function createHandlers(
+  directions: Directions,
+  webhooks?: { db: Db; config: WebhookConfig | null; fetch?: typeof fetch },
+): Record<string, JobHandler> {
+  const handlers: Record<string, JobHandler> = {
     [TRACE_CREATE]: async (job: JobRow): Promise<JobResult> => {
       const p = job.payload as TraceCreatePayload;
       await createTraces(forDomain(directions, p.sourceDomain), p.sourceTxHash);
@@ -33,4 +37,8 @@ export function createHandlers(directions: Directions): Record<string, JobHandle
         : { kind: "wait", delayMs: outcome.delayMs, payload: outcome.payload };
     },
   };
+  if (webhooks?.config) {
+    handlers[WEBHOOK_DELIVER] = createWebhookHandler(webhooks.db, webhooks.config, webhooks.fetch);
+  }
+  return handlers;
 }
