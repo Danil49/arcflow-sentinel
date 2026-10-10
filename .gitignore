@@ -11,3 +11,9 @@ coverage/
 !.env.example
 contracts/out/
 contracts/cache/
+
+.agents/
+.claude/skills
+skills-lock.json
+
+.DS_Store
