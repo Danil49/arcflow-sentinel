@@ -15,6 +15,13 @@
       "when": 1791556626886,
       "tag": "0001_lifecycle_and_webhooks",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791657561416,
+      "tag": "0002_evidence_bundles",
+      "breakpoints": true
     }
   ]
 }

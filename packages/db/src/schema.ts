@@ -205,3 +205,30 @@ export const webhookDeliveries = pgTable(
     index("webhook_deliveries_trace_idx").on(t.traceId, t.sequence),
   ],
 );
+
+/**
+ * Sealed evidence bundles. One row per distinct payload hash: re-requesting evidence for an
+ * unchanged trace returns the same row. Anchoring (Phase 5) fills the anchor columns.
+ */
+export const evidenceBundles = pgTable(
+  "evidence_bundles",
+  {
+    id: bigserial("id", { mode: "bigint" }).primaryKey(),
+    traceId: uuid("trace_id")
+      .notNull()
+      .references(() => transferTraces.id),
+    schemaVersion: text("schema_version").notNull(),
+    sha256: text("sha256").notNull(),
+    keccak256: text("keccak256").notNull(),
+    keyId: text("key_id").notNull(),
+    status: text("status").notNull(),
+    bundle: jsonb("bundle").notNull(),
+    anchorTxHash: text("anchor_tx_hash"),
+    anchoredAt: ts("anchored_at"),
+    createdAt: ts("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("evidence_bundles_hash_uq").on(t.traceId, t.keccak256),
+    index("evidence_bundles_trace_idx").on(t.traceId, t.createdAt),
+  ],
+);

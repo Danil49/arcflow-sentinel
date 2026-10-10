@@ -100,6 +100,11 @@ export type WorkerEnv = z.infer<typeof workerEnvSchema>;
 export const webEnvSchema = pipelineEnvSchema.safeExtend({
   /** Bearer tokens accepted for privileged endpoints (confirm, webhook test). */
   API_KEYS: csv.pipe(z.array(z.string().min(24))),
+  /** 32-byte Ed25519 seed (hex) that signs evidence bundles. Generate: pnpm --filter @sentinel/evidence keygen */
+  EVIDENCE_SIGNING_KEY: z
+    .string()
+    .regex(/^(0x)?[0-9a-fA-F]{64}$/, "must be 32 bytes of hex")
+    .optional(),
 });
 export type WebEnv = z.infer<typeof webEnvSchema>;
 

@@ -103,6 +103,30 @@ export function openApiDocument() {
           },
         },
       },
+      "/api/traces/{id}/evidence": {
+        get: {
+          summary: "Signed evidence bundle (deterministic; ?download=1 serves it as a file)",
+          description:
+            "RFC 8785 canonical payload, its SHA-256 and keccak256 (the value anchored on Arc), and an " +
+            "Ed25519 signature. Verify with `verify-evidence` against /.well-known/sentinel-key.json.",
+          parameters: [
+            ...idParam,
+            {
+              name: "download",
+              in: "query",
+              required: false,
+              schema: { type: "string", enum: ["1"] },
+            },
+          ],
+          responses: { "200": { description: "Evidence bundle" }, ...problems(404, 503) },
+        },
+      },
+      "/.well-known/sentinel-key.json": {
+        get: {
+          summary: "Public key that signs this deployment's evidence",
+          responses: { "200": { description: "Key" }, ...problems(503) },
+        },
+      },
       "/api/traces/{id}/confirm": {
         post: {
           summary: "Application confirmation (MINT_CONFIRMED → APPLICATION_CONFIRMED)",

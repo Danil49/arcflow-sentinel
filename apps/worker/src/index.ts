@@ -7,3 +7,4 @@ export * from "./services.js";
 export * from "./steps.js";
 export * from "./trace.js";
 export * from "./webhooks.js";
+export * from "./evidence.js";

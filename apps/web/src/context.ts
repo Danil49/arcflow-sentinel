@@ -1,6 +1,7 @@
 import { IRIS_BASE_URL, type RouteChain } from "@sentinel/chains";
 import { parseEnv, webEnvSchema } from "@sentinel/config";
 import { connect, type Db } from "@sentinel/db";
+import { signerFromSeed, type EvidenceSigner } from "@sentinel/evidence";
 import {
   createIrisClient,
   resolveDeadlines,
@@ -19,6 +20,9 @@ export interface ApiContext {
   webhooks: WebhookConfig | null;
   apiKeys: readonly string[];
   irisBaseUrl: string;
+  network: "mainnet" | "testnet";
+  /** Null when EVIDENCE_SIGNING_KEY is not configured (evidence endpoints then return 503). */
+  signer: EvidenceSigner | null;
   now: () => Date;
 }
 
@@ -45,6 +49,8 @@ export function contextFromEnv(env = parseEnv(webEnvSchema)): ApiContext {
     webhooks,
     apiKeys: env.API_KEYS,
     irisBaseUrl,
+    network: env.CCTP_NETWORK,
+    signer: env.EVIDENCE_SIGNING_KEY ? signerFromSeed(env.EVIDENCE_SIGNING_KEY) : null,
     now: () => new Date(),
   };
 }

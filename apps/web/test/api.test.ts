@@ -3,6 +3,8 @@ import { routeChains } from "@sentinel/chains";
 import { getTrace, jobs, webhookDeliveries } from "@sentinel/db";
 import { startTestDb, type TestDb } from "@sentinel/db/testing";
 import { refreshTrace, type PipelineDeps } from "@sentinel/worker";
+import { signerFromSeed, verifyEvidence, type EvidenceBundle } from "@sentinel/evidence";
+import { getEvidence, getPublicKey } from "../src/api/evidence.js";
 import { getLive, getReady, getRoutes, resetRoutesCache } from "../src/api/health.js";
 import { openApiDocument } from "../src/api/openapi.js";
 import {
@@ -29,6 +31,7 @@ import {
 } from "../../worker/test/fakes.js";
 
 const KEY = "test-api-key-0123456789abcdef";
+const signer = signerFromSeed("22".repeat(32));
 const chains = routeChains("mainnet");
 let t: TestDb;
 let ctx: ApiContext;
@@ -73,6 +76,8 @@ beforeEach(async () => {
     webhooks,
     apiKeys: [KEY],
     irisBaseUrl: "https://iris.invalid",
+    network: "mainnet",
+    signer,
     now,
   };
 });
@@ -284,6 +289,7 @@ describe("webhooks and health", () => {
   it("openapi document lists every route and component", () => {
     const doc = openApiDocument();
     expect(Object.keys(doc.paths).sort()).toEqual([
+      "/.well-known/sentinel-key.json",
       "/api/health/live",
       "/api/health/ready",
       "/api/health/routes",
@@ -291,10 +297,43 @@ describe("webhooks and health", () => {
       "/api/traces/{id}",
       "/api/traces/{id}/confirm",
       "/api/traces/{id}/events",
+      "/api/traces/{id}/evidence",
       "/api/traces/{id}/invariants",
       "/api/webhooks/test",
     ]);
     expect(doc.components.schemas.Trace).toMatchObject({ type: "object" });
     expect(JSON.stringify(doc)).not.toContain('$ref":"#/components/schemas/undefined');
+  });
+});
+
+describe("evidence", () => {
+  it("serves a deterministic, verifiable bundle and the public key", async () => {
+    const id = (await created()).json.traces[0].id;
+    await refreshTrace(ctx.pipeline("base"), { traceId: id, sourceDomain: 6 });
+    const req = (q = "") => new Request(`http://test/api/traces/${id}/evidence${q}`);
+
+    const res = await getEvidence(ctx, req(), id);
+    expect(res.status).toBe(200);
+    const bundle = (await res.json()) as EvidenceBundle;
+    const key = await body(await getPublicKey(ctx));
+    expect(key).toMatchObject({
+      alg: "Ed25519",
+      keyId: signer.keyId,
+      publicKey: signer.publicKeyHex,
+    });
+    expect(verifyEvidence(bundle, key.publicKey).ok).toBe(true);
+
+    const again = await getEvidence(ctx, req("?download=1"), id);
+    expect(again.headers.get("etag")).toBe(res.headers.get("etag"));
+    expect(again.headers.get("content-disposition")).toMatch(
+      /^attachment; filename="sentinel-evidence-.*\.json"$/,
+    );
+  });
+
+  it("404 for unknown traces and 503 without a signing key", async () => {
+    const get = handle((id: string) => getEvidence(ctx, new Request("http://test/x"), id));
+    expect((await get("00000000-0000-0000-0000-000000000000")).status).toBe(404);
+    const noKey = { ...ctx, signer: null };
+    expect((await handle(() => getPublicKey(noKey))()).status).toBe(503);
   });
 });

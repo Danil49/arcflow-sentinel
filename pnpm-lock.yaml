@@ -50,6 +50,9 @@ importers:
       '@sentinel/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@sentinel/evidence':
+        specifier: workspace:*
+        version: link:../../packages/evidence
       '@sentinel/worker':
         specifier: workspace:*
         version: link:../worker
@@ -93,6 +96,9 @@ importers:
       '@sentinel/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@sentinel/evidence':
+        specifier: workspace:*
+        version: link:../../packages/evidence
       drizzle-orm:
         specifier: ^0.44.7
         version: 0.44.7(@types/pg@8.23.1)(pg@8.23.1)
@@ -155,6 +161,12 @@ importers:
       testcontainers:
         specifier: ^11.14.0
         version: 11.14.0
+
+  packages/evidence:
+    dependencies:
+      viem:
+        specifier: ^2.57.3
+        version: 2.57.3(typescript@5.9.3)(zod@4.6.5)
 
 packages:
 

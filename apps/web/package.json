@@ -15,6 +15,7 @@
     "@sentinel/config": "workspace:*",
     "@sentinel/core": "workspace:*",
     "@sentinel/db": "workspace:*",
+    "@sentinel/evidence": "workspace:*",
     "@sentinel/worker": "workspace:*",
     "drizzle-orm": "^0.44.7",
     "next": "^15.5.27",

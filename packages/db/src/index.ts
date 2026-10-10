@@ -1,4 +1,5 @@
 export * from "./client.js";
+export * from "./evidence-repo.js";
 export * from "./jobs.js";
 export * from "./lifecycle-repo.js";
 export * from "./repo.js";

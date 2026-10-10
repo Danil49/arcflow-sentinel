@@ -1,0 +1,18 @@
+{
+  "name": "@sentinel/evidence",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "vitest run --passWithNoTests",
+    "verify-evidence": "tsx src/verify-cli.ts",
+    "keygen": "tsx src/keygen-cli.ts"
+  },
+  "dependencies": {
+    "viem": "^2.57.3"
+  }
+}

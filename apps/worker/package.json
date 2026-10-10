@@ -18,6 +18,7 @@
     "@sentinel/config": "workspace:*",
     "@sentinel/core": "workspace:*",
     "@sentinel/db": "workspace:*",
+    "@sentinel/evidence": "workspace:*",
     "drizzle-orm": "^0.44.7",
     "viem": "^2.38.0"
   },
