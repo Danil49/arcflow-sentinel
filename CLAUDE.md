@@ -4,13 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-Phases 1–3 of the plan in `idea.md` are done:
+Phases 1–4 of the plan in `idea.md` are done:
 
 - 1: skeleton and spike
 - 2: persistence, job queue and collectors
 - 3: lifecycle reducer, invariants, webhooks and the REST API
+- 4: signed evidence bundles, the verifier CLI and the trace UI
 
-Not built yet: the trace UI, evidence bundles (Phase 4), the `EvidenceRegistry` contract and anchoring (Phase 5), and hardening such as rate limiting (Phase 6). Other reference files:
+Not built yet: the `EvidenceRegistry` contract and anchoring (Phase 5), and hardening such as rate limiting and demo seed data (Phase 6). Other reference files:
 
 - `idea.md`: the product spec and source of truth. It defines scope, architecture, data model, invariants, API, contract, and a 7-day plan.
 - `docs-references.md`: an index (llms.txt style) of Arc docs. Use it to find the right Arc page to fetch.
@@ -31,6 +32,9 @@ pnpm isn't installed globally here, so run it as `npx pnpm@10.18.3 …` (the ver
 - Create a trace without the API: `pnpm --filter @sentinel/worker create-trace <sourceTxHash> --from base|arc`.
 - Web/API: `pnpm --filter @sentinel/web dev`, or `build` then `start`. `pnpm --filter @sentinel/web build` must keep passing, because it is the only check that the workspace packages bundle under webpack.
 - Example Arc→Base transfers, and how to find more: `docs/discovering-arc-to-base-transfers.md`.
+- Evidence:
+  - Generate a signing key with `pnpm --filter @sentinel/evidence keygen`. It prints `EVIDENCE_SIGNING_KEY` and the public key.
+  - Verify a bundle with `pnpm --filter @sentinel/evidence verify-evidence <bundle.json> --key-url <site>/.well-known/sentinel-key.json`, or pass `--public-key <hex>`. Exit codes: 0 valid, 1 invalid, 2 usage or read error.
 - Scripts read the root `.env` (see `.env.example`). Variables already set in the shell take precedence over it.
 - The `db` and `worker` tests start Postgres through testcontainers (`postgres:17-alpine`). They work with Podman via `/var/run/docker.sock`; Ryuk is disabled automatically.
 
@@ -78,6 +82,16 @@ pnpm isn't installed globally here, so run it as `npx pnpm@10.18.3 …` (the ver
   - Privileged endpoints use `Authorization: Bearer <API_KEYS entry>`.
   - `GET /api/openapi.json` is generated from the same zod schemas the handlers validate with.
   - Migrations live behind the `@sentinel/db/migrate` subpath so the web bundle never includes the SQL folder.
+
+- `packages/evidence`: RFC 8785 canonicalization (`canonical.ts`), Ed25519 via `node:crypto` (`keys.ts`, no extra dependencies), and `sealEvidence`/`verifyEvidence` (`bundle.ts`).
+  - The payload deliberately has **no generation timestamp**, and its collections are sorted. Unchanged evidence therefore produces byte-identical bundles, so a keccak256 anchored on Arc stays meaningful. Don't add volatile fields such as `evaluatedAt`.
+  - Verification must use the operator's published key, never the key embedded in the bundle.
+  - `apps/worker/src/evidence.ts` assembles the payload from DB rows, including reorged (`removed`) events. Bundles are stored in `evidence_bundles`, one row per (trace, keccak256).
+- UI (`apps/web/app`, `src/ui`): server components read the DB through `src/views.ts`. There are no chain calls at render time.
+  - `stations.ts` maps a trace onto the route line. Its tests are in `test/ui.test.ts`.
+  - `LiveRefresh` re-renders every 5 s while the trace can still change.
+  - The design tokens are in `app/globals.css`, with matching light and dark palettes.
+  - Don't apply tabular figures (`tnum` / `tabular-nums`) to text set in Schibsted Grotesk: the font widens punctuation under it.
 
 Packages export their TypeScript sources directly (`exports: ./src/index.ts`) with no build step. Relative imports use `.js` extensions (NodeNext).
 

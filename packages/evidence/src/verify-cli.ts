@@ -37,7 +37,13 @@ if (!publicKey) {
   publicKey = ((await res.json()) as { publicKey: string }).publicKey;
 }
 
-const bundle = JSON.parse(readFileSync(file, "utf8")) as EvidenceBundle;
+let bundle: EvidenceBundle;
+try {
+  bundle = JSON.parse(readFileSync(file, "utf8")) as EvidenceBundle;
+} catch (e) {
+  console.error(`cannot read bundle ${file}: ${(e as Error).message}`);
+  process.exit(2);
+}
 const result = verifyEvidence(bundle, publicKey);
 
 if (values.json) {

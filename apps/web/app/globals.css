@@ -1,0 +1,134 @@
+@import "tailwindcss";
+
+/*
+ * Tokens. Chart-paper ground, ink navy, USDC blue as the single accent; three status hues that
+ * only ever mean pass / stuck / failed. Dark mode keeps the same roles.
+ */
+:root {
+  --paper: #eef2f4;
+  --sheet: #f8fafb;
+  --ink: #14213d;
+  --ink-soft: #4a5874;
+  --rule: #c9d2d9;
+  --accent: #2775ca;
+  --accent-ink: #ffffff;
+  --ok: #1f7a4d;
+  --stuck: #9a6700;
+  --fail: #b42318;
+  --ok-wash: #e3f1ea;
+  --stuck-wash: #fbf0d9;
+  --fail-wash: #fbe7e5;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #0f1a2e;
+    --sheet: #15223a;
+    --ink: #e6ecf3;
+    --ink-soft: #9fb0c6;
+    --rule: #2c3d5a;
+    --accent: #5b9fe6;
+    --accent-ink: #0b1526;
+    --ok: #4cc38a;
+    --stuck: #e0b04a;
+    --fail: #f2766b;
+    --ok-wash: #173a2c;
+    --stuck-wash: #3a2f15;
+    --fail-wash: #3d1d1e;
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-sheet: var(--sheet);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-rule: var(--rule);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-ok: var(--ok);
+  --color-stuck: var(--stuck);
+  --color-fail: var(--fail);
+  --color-ok-wash: var(--ok-wash);
+  --color-stuck-wash: var(--stuck-wash);
+  --color-fail-wash: var(--fail-wash);
+  --font-sans: var(--font-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+}
+
+html {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Faint chart-paper grid behind the content: the one decorative texture. */
+body {
+  min-height: 100dvh;
+  background-image:
+    linear-gradient(
+      to right,
+      color-mix(in srgb, var(--rule) 35%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--rule) 35%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 24px 24px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* The live "current station" pulse on the route rail: the only ambient motion on the site. */
+@keyframes station-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 10px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+.station-live {
+  animation: station-pulse 2s ease-out infinite;
+}
+
+/* Route rail segments that are not travelled yet: dashed, in the direction of the line. */
+.seg-live,
+.seg-stuck {
+  --seg: var(--accent);
+  background: repeating-linear-gradient(180deg, var(--seg) 0 6px, transparent 6px 11px);
+}
+.seg-stuck {
+  --seg: var(--stuck);
+}
+@media (min-width: 48rem) {
+  .seg-live,
+  .seg-stuck {
+    background: repeating-linear-gradient(90deg, var(--seg) 0 6px, transparent 6px 11px);
+  }
+}

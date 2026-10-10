@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { and, asc, eq, gte, isNull, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, isNull, lt, sql } from "drizzle-orm";
 import {
   bytes32ToAddress,
   toJsonSafe,
@@ -331,4 +331,12 @@ export async function rewindStream(
     .update(chainCursors)
     .set({ nextBlock: fromBlock, updatedAt: new Date() })
     .where(eq(chainCursors.stream, stream));
+}
+
+export async function listRecentTraces(db: Tx, limit = 20): Promise<TraceRow[]> {
+  return db
+    .select()
+    .from(transferTraces)
+    .orderBy(desc(transferTraces.firstSeenAt), desc(transferTraces.id))
+    .limit(Math.min(Math.max(limit, 1), 100));
 }
