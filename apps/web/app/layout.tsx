@@ -50,8 +50,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         </main>
         <footer className="mx-auto max-w-6xl px-5 sm:px-8">
           <p className="border-t border-rule py-6 text-sm text-ink-soft">
-            Read-only monitor for CCTP V2 transfers between Arc and Base. It never holds funds or
-            signs transactions.
+            Read-only monitor for CCTP V2 transfers between Arc and Base. It never holds your funds;
+            the only transactions it sends anchor evidence hashes on Arc.
           </p>
         </footer>
       </body>

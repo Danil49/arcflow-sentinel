@@ -60,7 +60,7 @@ export default async function Home() {
                       <span className="ml-2 text-sm font-normal text-ink-soft">demo</span>
                     )}
                   </span>
-                  <span className="text-right font-mono sm:text-left">
+                  <span className="whitespace-nowrap text-right font-mono sm:text-left">
                     {formatUsdc(t.amountAtomic)} USDC
                   </span>
                   <StatusText progress={t.progress} reason={t.reason} />

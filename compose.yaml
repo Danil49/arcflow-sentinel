@@ -1,0 +1,56 @@
+# Self-hosted ArcFlow Sentinel: Postgres + migrations + web/API + worker.
+#   cp .env.example .env   # fill in RPCs, EVIDENCE_SIGNING_KEY, API_KEYS, ...
+#   podman compose up -d --build     (or: docker compose up -d --build)
+# Then open http://localhost:3000. See docs/self-hosting.md.
+name: arcflow-sentinel
+
+x-app: &app
+  image: localhost/arcflow-sentinel:latest
+  build: { context: ., dockerfile: Containerfile }
+  env_file: [.env]
+  environment:
+    # The compose network's database wins over any DATABASE_URL in .env.
+    DATABASE_URL: postgres://sentinel:${POSTGRES_PASSWORD:-sentinel}@postgres:5432/sentinel
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: docker.io/library/postgres:17-alpine
+    environment:
+      POSTGRES_USER: sentinel
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sentinel}
+      POSTGRES_DB: sentinel
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sentinel -d sentinel"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  migrate:
+    <<: *app
+    command: ["pnpm", "--filter", "@sentinel/db", "exec", "tsx", "src/migrate-cli.ts"]
+    restart: "no"
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  web:
+    <<: *app
+    ports: ["${WEB_PORT:-3000}:3000"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health/ready >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  worker:
+    <<: *app
+    command: ["pnpm", "--filter", "@sentinel/worker", "exec", "tsx", "src/main.ts"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+volumes:
+  pgdata:
