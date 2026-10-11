@@ -21,6 +21,7 @@
     "testcontainers": "^11.14.0"
   },
   "dependencies": {
+    "@sentinel/config": "workspace:*",
     "@sentinel/core": "workspace:*",
     "drizzle-orm": "^0.44.7",
     "pg": "^8.23.1",

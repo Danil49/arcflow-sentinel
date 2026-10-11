@@ -46,6 +46,7 @@ export async function getPublicKey(ctx: ApiContext): Promise<Response> {
             network: ctx.anchor.network,
             chainId: ctx.anchor.chainId,
             registry: ctx.anchor.registry,
+            submitter: ctx.anchor.submitter,
           }
         : null,
     },

@@ -24,7 +24,7 @@ export async function startTestDb(): Promise<TestDb> {
     container,
     reset: async () => {
       await handle.db
-        .execute(sql`truncate table evidence_bundles, invariant_results, attestation_observations,
+        .execute(sql`truncate table rate_limit_windows, evidence_bundles, invariant_results, attestation_observations,
         observed_events, webhook_deliveries, transfer_traces, chain_blocks, chain_cursors, jobs restart identity cascade`);
     },
     stop: async () => {

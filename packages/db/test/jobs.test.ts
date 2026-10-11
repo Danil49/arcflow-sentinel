@@ -74,3 +74,19 @@ describe("job queue", () => {
     expect(await row(id)).toMatchObject({ status: "queued", attempts: 0, lockedBy: null });
   });
 });
+
+describe("persisted errors are redacted", () => {
+  it("strips RPC URL paths (API keys) from job errors", async () => {
+    const id = (await enqueueJob(t.db, "t", {}))!;
+    const [job] = await claimJobs(t.db, "w");
+    await failJob(
+      t.db,
+      job!,
+      "w",
+      "HttpRequestError: URL: https://arc-mainnet.g.alchemy.com/v2/SECRETKEY123456789",
+    );
+    expect((await row(id)).lastError).toBe(
+      "HttpRequestError: URL: https://arc-mainnet.g.alchemy.com/<redacted>",
+    );
+  });
+});

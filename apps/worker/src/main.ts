@@ -1,6 +1,6 @@
 import { hostname } from "node:os";
 import { IRIS_BASE_URL, type RouteChain } from "@sentinel/chains";
-import { parseEnv, workerEnvSchema } from "@sentinel/config";
+import { errorText, parseEnv, workerEnvSchema } from "@sentinel/config";
 import { connect } from "@sentinel/db";
 import { collectorTick, type CollectorOptions } from "./collector.js";
 import { routeSidesFromEnv } from "./env.js";
@@ -75,7 +75,7 @@ async function runCollector(key: RouteChain) {
       if (r.kind === "idle") await sleep(key === "arc" ? 1_000 : 2_000);
     } catch (err) {
       failures++;
-      log("collector error", { chain: key, error: String(err), failures });
+      log("collector error", { chain: key, error: errorText(err), failures });
       await sleep(Math.min(60_000, 1_000 * 2 ** failures));
     }
   }

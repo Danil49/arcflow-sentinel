@@ -1,5 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { z } from "zod";
+import { errorText, redact } from "@sentinel/config";
 import { toJsonSafe } from "@sentinel/core";
 import { TraceInputError } from "@sentinel/worker";
 import type { ApiContext } from "./context.js";
@@ -22,8 +23,9 @@ export const json = (body: unknown, status = 200, headers: Record<string, string
     headers: { "content-type": "application/json", "cache-control": "no-store", ...headers },
   });
 
-const problem = (e: HttpError) =>
-  new Response(
+const problem = (e: HttpError) => {
+  const retryAfter = e.extra?.retryAfterSec;
+  return new Response(
     JSON.stringify({
       type: "about:blank",
       title: e.title,
@@ -33,9 +35,14 @@ const problem = (e: HttpError) =>
     }),
     {
       status: e.status,
-      headers: { "content-type": "application/problem+json", "cache-control": "no-store" },
+      headers: {
+        "content-type": "application/problem+json",
+        "cache-control": "no-store",
+        ...(typeof retryAfter === "number" ? { "retry-after": String(retryAfter) } : {}),
+      },
     },
   );
+};
 
 /**
  * Wraps a handler: maps known errors to problem responses and hides internals for anything
@@ -48,10 +55,10 @@ export function handle<A extends unknown[]>(fn: (...args: A) => Promise<Response
     } catch (err) {
       if (err instanceof HttpError) return problem(err);
       if (err instanceof TraceInputError)
-        return problem(new HttpError(422, "Unprocessable trace", err.message));
+        return problem(new HttpError(422, "Unprocessable trace", redact(err.message)));
       const id = crypto.randomUUID();
       console.error(
-        JSON.stringify({ msg: "unhandled api error", errorId: id, error: String(err) }),
+        JSON.stringify({ msg: "unhandled api error", errorId: id, error: errorText(err) }),
       );
       return problem(new HttpError(500, "Internal error", `error id ${id}`));
     }
@@ -92,6 +99,21 @@ export function isAuthorized(ctx: ApiContext, req: Request): boolean {
     const key = Buffer.from(k);
     return key.length === given.length && timingSafeEqual(key, given);
   });
+}
+
+/**
+ * Client identity for rate limiting. Only X-Forwarded-For's rightmost entry is used (the address
+ * your trusted proxy saw), and only when TRUST_PROXY is set; otherwise every client shares "anon".
+ */
+export function clientKey(ctx: ApiContext, req: Request): string {
+  if (!ctx.rateLimit.trustProxy) return "anon";
+  const xff = req.headers.get("x-forwarded-for");
+  const ip = xff
+    ?.split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .at(-1);
+  return ip ? `ip:${ip}` : "anon";
 }
 
 export function requireAuth(ctx: ApiContext, req: Request): void {

@@ -32,6 +32,7 @@ function view(over: Partial<TraceView["trace"]> = {}, extra: Partial<TraceView> 
       requireAppConfirmation: false,
       applicationConfirmedAt: null,
       applicationReference: null,
+      isDemo: false,
       explorer: { source: "https://basescan.org/tx/0x21", destination: null },
       firstSeenAt: at(0).toISOString(),
       updatedAt: at(0).toISOString(),

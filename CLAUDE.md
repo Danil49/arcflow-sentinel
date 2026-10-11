@@ -4,20 +4,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-Phases 1–4 and 5a of the plan are done:
+Phases 1–4, 5a and 6 of the plan are done:
 
 - 1: skeleton and spike
 - 2: persistence, job queue and collectors
 - 3: lifecycle reducer, invariants, webhooks and the REST API
 - 4: signed evidence bundles, the verifier CLI and the trace UI
 - 5a: `EvidenceRegistry` deployed on Arc **testnet** and anchoring wired end to end
+- 6: hardening (secret redaction, rate limiting, submitter-checked anchors), demo seed, and docs (README, threat model, ADRs, SECURITY, LICENSE)
 
 Constraints, as of 2026-10-11:
 
 - No third-party programs can be installed (no Arc Foundry, no desktop wallets). npm libraries are fine.
 - The only key is a dedicated MetaMask account (`ANCHOR_PRIVATE_KEY`) holding testnet USDC; there is no mainnet USDC.
 
-So Sentinel monitors **mainnet** CCTP while anchoring on **testnet**. Mainnet anchoring is Phase 8, the last phase. Next up are Phase 6 (hardening, rate limiting, demo seed) and Phase 7 (self-hostable deployment). Other reference files:
+So Sentinel monitors **mainnet** CCTP while anchoring on **testnet**. Mainnet anchoring is Phase 8, the last phase. Next up is Phase 7 (self-hostable deployment). Other reference files:
 
 - `idea.md`: the product spec and source of truth. It defines scope, architecture, data model, invariants, API, contract, and a 7-day plan.
 - `docs-references.md`: an index (llms.txt style) of Arc docs. Use it to find the right Arc page to fetch.
@@ -111,6 +112,13 @@ pnpm isn't installed globally here, so run it as `npx pnpm@10.18.3 …` (the ver
   - `LiveRefresh` re-renders every 5 s while the trace can still change.
   - The design tokens are in `app/globals.css`, with matching light and dark palettes.
   - Don't apply tabular figures (`tnum` / `tabular-nums`) to text set in Schibsted Grotesk: the font widens punctuation under it.
+
+- Security conventions:
+  - **Every** error that is logged or persisted goes through `errorText()` or `redact()` from `@sentinel/config`. viem errors embed RPC URLs, and the API key lives in the URL path. `parseEnv` registers secret env values automatically.
+  - Anonymous `POST /api/traces` is rate limited per client and globally (`rate_limit_windows`). `X-Forwarded-For` is used only with `TRUST_PROXY=true`.
+  - Verifiers check the anchor emitter (the registry) and its submitter (`ANCHOR_SUBMITTER_ADDRESS`, published in the key file), because the registry is permissionless.
+- Demo data: `pnpm --filter @sentinel/worker seed-demo` loads `fixtures/*/meta.json` dirs offline as `is_demo` traces. The UI labels them historical.
+- Docs: `README.md`, `docs/threat-model.md`, `docs/adr/`, `SECURITY.md`.
 
 Packages export their TypeScript sources directly (`exports: ./src/index.ts`) with no build step. Relative imports use `.js` extensions (NodeNext).
 

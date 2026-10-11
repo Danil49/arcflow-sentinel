@@ -1,4 +1,5 @@
 import { and, eq, lt, sql } from "drizzle-orm";
+import { redact } from "@sentinel/config";
 import { toJsonSafe } from "@sentinel/core";
 import type { Tx } from "./repo.js";
 import { webhookDeliveries } from "./schema.js";
@@ -46,7 +47,7 @@ export async function recordDeliveryAttempt(
       status: outcome.status,
       attempts: sql`${webhookDeliveries.attempts} + 1`,
       lastStatusCode: outcome.statusCode,
-      lastError: outcome.error?.slice(0, 1_000) ?? null,
+      lastError: outcome.error ? redact(outcome.error).slice(0, 1_000) : null,
       ...(outcome.status === "delivered" ? { deliveredAt: new Date() } : {}),
     })
     .where(and(eq(webhookDeliveries.id, id), eq(webhookDeliveries.status, "pending")));

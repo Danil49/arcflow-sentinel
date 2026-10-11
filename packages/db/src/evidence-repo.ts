@@ -1,4 +1,5 @@
 import { and, desc, eq } from "drizzle-orm";
+import { redact } from "@sentinel/config";
 import type { Tx } from "./repo.js";
 import { evidenceBundles } from "./schema.js";
 
@@ -100,6 +101,6 @@ export async function markAnchorConfirmed(
 export async function markAnchorFailed(db: Tx, id: bigint, error: string): Promise<void> {
   await db
     .update(evidenceBundles)
-    .set({ anchorStatus: "failed", anchorRawTx: null, anchorError: error.slice(0, 1_000) })
+    .set({ anchorStatus: "failed", anchorRawTx: null, anchorError: redact(error).slice(0, 1_000) })
     .where(eq(evidenceBundles.id, id));
 }

@@ -24,6 +24,7 @@ const { positionals, values } = parseArgs({
     "key-url": { type: "string" },
     "anchor-tx": { type: "string" },
     registry: { type: "string" },
+    submitter: { type: "string" },
     "chain-id": { type: "string" },
     rpc: { type: "string" },
     json: { type: "boolean" },
@@ -39,7 +40,7 @@ if (!file || (!values["public-key"] && !values["key-url"])) {
 
 interface Published {
   publicKey: string;
-  anchor?: { network: string; chainId: number; registry: string } | null;
+  anchor?: { network: string; chainId: number; registry: string; submitter?: string | null } | null;
 }
 let published: Published | null = null;
 if (values["key-url"]) {
@@ -74,6 +75,9 @@ if (values["anchor-tx"]) {
   anchor = await verifyAnchor(bundle, {
     txHash: values["anchor-tx"] as Hex,
     registry: registry as Address,
+    ...((values.submitter ?? published?.anchor?.submitter)
+      ? { submitter: (values.submitter ?? published?.anchor?.submitter) as Address }
+      : {}),
     ...(chainId ? { chainId } : {}),
     ...(values.rpc ? { rpcUrl: values.rpc } : {}),
   });

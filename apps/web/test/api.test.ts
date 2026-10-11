@@ -77,12 +77,14 @@ beforeEach(async () => {
     apiKeys: [KEY],
     irisBaseUrl: "https://iris.invalid",
     network: "mainnet",
+    rateLimit: { perClient: 3, global: 5, windowMs: 60_000, trustProxy: true },
     signer,
     anchor: {
       mode: "manual",
       network: "testnet",
       chainId: 5042002,
       registry: "0xD37a99DC7a7CA2E3b1A75648886875E50a6b52FF",
+      submitter: "0x6f696845ba4e28436d48FDc023C19E849e8154fc",
       explorerTxUrl: (h: string) => `https://testnet.arcscan.app/tx/${h}`,
     },
     now,
@@ -364,6 +366,7 @@ describe("POST /api/traces/{id}/anchor", () => {
       network: "testnet",
       chainId: 5042002,
       registry: "0xD37a99DC7a7CA2E3b1A75648886875E50a6b52FF",
+      submitter: "0x6f696845ba4e28436d48FDc023C19E849e8154fc",
     });
   });
 
@@ -374,5 +377,59 @@ describe("POST /api/traces/{id}/anchor", () => {
       409,
     );
     expect((await anchor(ctx, "00000000-0000-0000-0000-000000000000")).status).toBe(404);
+  });
+});
+
+describe("rate limiting new traces", () => {
+  const tx = (i: number) => `0x${i.toString(16).padStart(64, "0")}`;
+  const from = (ip: string, i: number, headers: Record<string, string> = {}) =>
+    createTrace(
+      post(
+        "/api/traces",
+        { sourceTxHash: tx(i), sourceChain: "base" },
+        { "x-forwarded-for": `9.9.9.9, ${ip}`, ...headers },
+      ),
+    );
+
+  it("limits anonymous creation per client (rightmost X-Forwarded-For) with Retry-After", async () => {
+    const codes = [];
+    for (let i = 1; i <= 4; i++) codes.push((await from("1.1.1.1", i)).status);
+    expect(codes).toEqual([422, 422, 422, 429]); // 422: fake chain has no such burn, but the call was spent
+    const limited = await from("1.1.1.1", 5);
+    expect(limited.headers.get("retry-after")).toMatch(/^\d+$/);
+    expect((await body(limited)).title).toBe("Too many new traces");
+    expect((await from("2.2.2.2", 6)).status).toBe(422); // other clients unaffected
+  });
+
+  it("enforces the global budget across clients, exempts API keys, and never limits existing traces", async () => {
+    for (let i = 1; i <= 5; i++) await from(`10.0.0.${i}`, i);
+    expect((await from("10.0.0.99", 99)).status).toBe(429); // global 5 reached
+    expect((await from("10.0.0.99", 100, auth)).status).toBe(422); // API key: exempt
+    // Existing traces are served from the DB without spending RPC: never rate limited.
+    const existing = { ...ctx, rateLimit: { ...ctx.rateLimit, global: 1, perClient: 1 } };
+    const make = handle((req: Request) => postTraces(existing, req));
+    await t.db.delete((await import("@sentinel/db")).rateLimitWindows);
+    const first = await make(post("/api/traces", { sourceTxHash: SRC, sourceChain: "base" }));
+    expect(first.status).toBe(201);
+    for (let i = 0; i < 3; i++) {
+      expect(
+        (await make(post("/api/traces", { sourceTxHash: SRC, sourceChain: "base" }))).status,
+      ).toBe(200);
+    }
+  });
+
+  it("without TRUST_PROXY all anonymous clients share one bucket (headers are not trusted)", async () => {
+    const untrusted = { ...ctx, rateLimit: { ...ctx.rateLimit, trustProxy: false } };
+    const make = (ip: string, i: number) =>
+      handle((req: Request) => postTraces(untrusted, req))(
+        post(
+          "/api/traces",
+          { sourceTxHash: tx(i), sourceChain: "base" },
+          { "x-forwarded-for": ip },
+        ),
+      );
+    const codes = [];
+    for (let i = 1; i <= 4; i++) codes.push((await make(`7.7.7.${i}`, i)).status);
+    expect(codes).toEqual([422, 422, 422, 429]);
   });
 });

@@ -55,6 +55,8 @@ export const transferTraces = pgTable(
     requireAppConfirmation: boolean("require_app_confirmation").notNull().default(false),
     applicationConfirmedAt: ts("application_confirmed_at"),
     applicationReference: text("application_reference"),
+    /** Seeded from historical fixtures (demo mode); shown with a "historical demo" label. */
+    isDemo: boolean("is_demo").notNull().default(false),
     /** Last webhook sequence number issued for this trace (monotonic per trace). */
     webhookSeq: integer("webhook_seq").notNull().default(0),
     firstSeenAt: ts("first_seen_at").notNull().defaultNow(),
@@ -241,5 +243,19 @@ export const evidenceBundles = pgTable(
   (t) => [
     uniqueIndex("evidence_bundles_hash_uq").on(t.traceId, t.keccak256),
     index("evidence_bundles_trace_idx").on(t.traceId, t.createdAt),
+  ],
+);
+
+/** Fixed-window counters for rate limiting (shared across web instances via Postgres). */
+export const rateLimitWindows = pgTable(
+  "rate_limit_windows",
+  {
+    key: text("key").notNull(),
+    windowStart: ts("window_start").notNull(),
+    count: integer("count").notNull().default(0),
+  },
+  (t) => [
+    primaryKey({ columns: [t.key, t.windowStart] }),
+    index("rate_limit_windows_start_idx").on(t.windowStart),
   ],
 );

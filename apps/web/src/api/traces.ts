@@ -11,7 +11,16 @@ import {
 } from "@sentinel/db";
 import { confirmTrace, createTraces } from "@sentinel/worker";
 import type { ApiContext } from "../context.js";
-import { HttpError, isAuthorized, json, parse, parseBody, requireAuth } from "../http.js";
+import { consumeRateLimit } from "@sentinel/db";
+import {
+  clientKey,
+  HttpError,
+  isAuthorized,
+  json,
+  parse,
+  parseBody,
+  requireAuth,
+} from "../http.js";
 import {
   confirmBody,
   createTraceBody,
@@ -57,6 +66,7 @@ export function toDto(ctx: ApiContext, t: TraceRow): TraceDto {
     requireAppConfirmation: t.requireAppConfirmation,
     applicationConfirmedAt: iso(t.applicationConfirmedAt),
     applicationReference: t.applicationReference,
+    isDemo: t.isDemo,
     explorer: {
       source: ctx.sides[source].config.explorerTxUrl(t.sourceTxHash),
       destination: t.destinationTxHash
@@ -93,6 +103,9 @@ export async function postTraces(ctx: ApiContext, req: Request): Promise<Respons
   ) {
     return json({ traces: existing.map((t) => toDto(ctx, t)) }, 200);
   }
+  // Creating a trace spends RPC calls, so anonymous creation is rate limited (reads of
+  // existing traces above are not). API-key holders are exempt.
+  if (!isAuthorized(ctx, req)) await enforceCreateLimit(ctx, req);
   const { traces, created } = await createTraces(
     ctx.pipeline(body.sourceChain),
     body.sourceTxHash as Hex,
@@ -101,6 +114,26 @@ export async function postTraces(ctx: ApiContext, req: Request): Promise<Respons
     },
   );
   return json({ traces: traces.map((t) => toDto(ctx, t)) }, created ? 201 : 200);
+}
+
+async function enforceCreateLimit(ctx: ApiContext, req: Request): Promise<void> {
+  const { perClient, global, windowMs } = ctx.rateLimit;
+  const now = ctx.now();
+  const client = await consumeRateLimit(
+    ctx.db,
+    `traces:create:${clientKey(ctx, req)}`,
+    perClient,
+    windowMs,
+    now,
+  );
+  const all = client.allowed
+    ? await consumeRateLimit(ctx.db, "traces:create:global", global, windowMs, now)
+    : client;
+  if (!all.allowed) {
+    throw new HttpError(429, "Too many new traces", "slow down, or use an API key", {
+      retryAfterSec: all.retryAfterSec,
+    });
+  }
 }
 
 /** GET /api/traces?sourceTxHash=…&sourceChain=… */

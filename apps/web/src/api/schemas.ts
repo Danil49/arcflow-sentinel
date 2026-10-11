@@ -48,6 +48,7 @@ export const traceDto = z.object({
   requireAppConfirmation: z.boolean(),
   applicationConfirmedAt: iso.nullable(),
   applicationReference: z.string().nullable(),
+  isDemo: z.boolean().describe("seeded from historical fixtures for demonstration"),
   explorer: z.object({ source: z.url(), destination: z.url().nullable() }),
   firstSeenAt: iso,
   updatedAt: iso,

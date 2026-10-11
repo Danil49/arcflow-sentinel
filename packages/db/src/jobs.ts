@@ -1,4 +1,5 @@
 import { and, eq, sql } from "drizzle-orm";
+import { redact } from "@sentinel/config";
 import { toJsonSafe } from "@sentinel/core";
 import type { Tx as Db } from "./repo.js";
 import { jobs } from "./schema.js";
@@ -129,7 +130,7 @@ export async function failJob(
       runAt: dead ? now : new Date(now.getTime() + backoffMs(job.attempts)),
       lockedAt: null,
       lockedBy: null,
-      lastError: error.slice(0, 2_000),
+      lastError: redact(error).slice(0, 2_000),
       updatedAt: now,
     })
     .where(ownedBy(job.id, workerId));

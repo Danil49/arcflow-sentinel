@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { registerSecretsFromEnv } from "./redact.js";
+
+export * from "./redact.js";
 
 const url = z.url();
 
@@ -75,6 +78,14 @@ const anchorEnv = {
     .string()
     .regex(/^0x[0-9a-fA-F]{40}$/, "must be an address")
     .optional(),
+  /**
+   * Public address of the anchor account, published so verifiers can require it as the
+   * submitter (the registry is permissionless). The web app never needs the private key.
+   */
+  ANCHOR_SUBMITTER_ADDRESS: z
+    .string()
+    .regex(/^0x[0-9a-fA-F]{40}$/, "must be an address")
+    .optional(),
   /** Refuse to send an anchor whose worst-case fee exceeds this (USDC). */
   ANCHOR_MAX_FEE_USDC: usdcAmount.default("0.05"),
   /** Stop anchoring when the anchor account balance falls below this (USDC). */
@@ -129,6 +140,18 @@ export type WorkerEnv = z.infer<typeof workerEnvSchema>;
 export const webEnvSchema = pipelineEnvSchema.safeExtend({
   /** Bearer tokens accepted for privileged endpoints (confirm, webhook test). */
   API_KEYS: csv.pipe(z.array(z.string().min(24))),
+  /**
+   * Trust X-Forwarded-For (set when behind your own proxy/load balancer). Without it, clients
+   * cannot be told apart safely and all anonymous traffic shares the per-client limit.
+   */
+  TRUST_PROXY: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+  /** New traces per client per minute (requests with an API key are exempt). */
+  RATE_LIMIT_TRACES_PER_MINUTE: z.coerce.number().int().positive().default(10),
+  /** New traces per minute across all anonymous clients: caps RPC spend. */
+  RATE_LIMIT_TRACES_GLOBAL_PER_MINUTE: z.coerce.number().int().positive().default(60),
 });
 export type WebEnv = z.infer<typeof webEnvSchema>;
 
@@ -146,5 +169,7 @@ export function parseEnv<S extends z.ZodType>(
     const issues = result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
     throw new EnvError(`invalid environment: ${issues}`);
   }
+  // Anything parsed from env is now known to the redactor, before it can reach a log line.
+  registerSecretsFromEnv(env as Record<string, string | undefined>);
   return result.data;
 }

@@ -1,3 +1,4 @@
+import { errorText } from "@sentinel/config";
 import { claimJobs, completeJob, failJob, rescheduleJob, type Db, type JobRow } from "@sentinel/db";
 
 export type JobResult = { kind: "done" } | { kind: "wait"; delayMs: number; payload?: unknown };
@@ -42,7 +43,7 @@ export async function runBatch(opts: RunnerOptions): Promise<number> {
           );
         }
       } catch (err) {
-        const message = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+        const message = errorText(err);
         const outcome = await failJob(opts.db, job, opts.workerId, message);
         log("job failed", { jobId: job.id.toString(), type: job.type, outcome, error: message });
       }
@@ -58,7 +59,7 @@ export async function runJobs(opts: RunnerOptions): Promise<void> {
     try {
       n = await runBatch(opts);
     } catch (err) {
-      opts.log?.("runner batch error", { error: String(err) });
+      opts.log?.("runner batch error", { error: errorText(err) });
     }
     if (n === 0) await sleep(opts.idleMs ?? 1_000, opts.signal);
   }

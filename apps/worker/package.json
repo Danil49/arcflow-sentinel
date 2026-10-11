@@ -11,7 +11,8 @@
     "test": "vitest run --passWithNoTests",
     "trace-once": "tsx --env-file-if-exists=../../.env scripts/trace-once.ts",
     "start": "tsx --env-file-if-exists=../../.env src/main.ts",
-    "create-trace": "tsx --env-file-if-exists=../../.env scripts/create-trace.ts"
+    "create-trace": "tsx --env-file-if-exists=../../.env scripts/create-trace.ts",
+    "seed-demo": "tsx --env-file-if-exists=../../.env scripts/seed-demo.ts"
   },
   "dependencies": {
     "@sentinel/chains": "workspace:*",

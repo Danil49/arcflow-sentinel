@@ -22,6 +22,7 @@ export interface ApiContext {
   apiKeys: readonly string[];
   irisBaseUrl: string;
   network: "mainnet" | "testnet";
+  rateLimit: { perClient: number; global: number; windowMs: number; trustProxy: boolean };
   /** Null when EVIDENCE_SIGNING_KEY is not configured (evidence endpoints then return 503). */
   signer: EvidenceSigner | null;
   /**
@@ -33,6 +34,7 @@ export interface ApiContext {
     network: AnchorNetwork;
     chainId: number;
     registry: `0x${string}` | null;
+    submitter: `0x${string}` | null;
     explorerTxUrl: (hash: string) => string;
   };
   now: () => Date;
@@ -62,12 +64,19 @@ export function contextFromEnv(env = parseEnv(webEnvSchema)): ApiContext {
     apiKeys: env.API_KEYS,
     irisBaseUrl,
     network: env.CCTP_NETWORK,
+    rateLimit: {
+      perClient: env.RATE_LIMIT_TRACES_PER_MINUTE,
+      global: env.RATE_LIMIT_TRACES_GLOBAL_PER_MINUTE,
+      windowMs: 60_000,
+      trustProxy: env.TRUST_PROXY,
+    },
     signer: env.EVIDENCE_SIGNING_KEY ? signerFromSeed(env.EVIDENCE_SIGNING_KEY) : null,
     anchor: {
       mode: env.ANCHOR_MODE,
       network: env.ANCHOR_NETWORK,
       chainId: anchorChain(env.ANCHOR_NETWORK).chain.id,
       registry: registryAddress(env.ANCHOR_NETWORK, env.EVIDENCE_REGISTRY_ADDRESS),
+      submitter: (env.ANCHOR_SUBMITTER_ADDRESS as `0x${string}` | undefined) ?? null,
       explorerTxUrl: anchorChain(env.ANCHOR_NETWORK).explorerTxUrl,
     },
     now: () => new Date(),

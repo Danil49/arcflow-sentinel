@@ -56,6 +56,9 @@ export default async function Home() {
                 >
                   <span className="font-medium">
                     {chainName(t.route.sourceChain)} to {chainName(t.route.destinationChain)}
+                    {t.isDemo && (
+                      <span className="ml-2 text-sm font-normal text-ink-soft">demo</span>
+                    )}
                   </span>
                   <span className="text-right font-mono sm:text-left">
                     {formatUsdc(t.amountAtomic)} USDC

@@ -182,6 +182,9 @@ importers:
 
   packages/db:
     dependencies:
+      '@sentinel/config':
+        specifier: workspace:*
+        version: link:../config
       '@sentinel/core':
         specifier: workspace:*
         version: link:../core

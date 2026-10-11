@@ -5,6 +5,7 @@ import {
   isAddressEqual,
   type Address,
   type Hex,
+  type PublicClient,
 } from "viem";
 import { arc, arcTestnet } from "viem/chains";
 import { evidenceRegistryAbi, traceIdToBytes32 } from "@sentinel/contracts";
@@ -19,6 +20,8 @@ export interface AnchorCheck {
     emittedByRegistry: boolean;
     traceIdMatches: boolean;
     hashMatches: boolean;
+    /** Present only when an expected submitter was given. */
+    submitterMatches?: boolean;
   };
   onChain: {
     traceId: Hex;
@@ -39,21 +42,29 @@ const chainById = (id: number) => [arc, arcTestnet].find((c) => c.id === id);
  */
 export async function verifyAnchor(
   bundle: EvidenceBundle,
-  opts: { txHash: Hex; registry: Address; rpcUrl?: string; chainId?: number },
+  opts: {
+    txHash: Hex;
+    registry: Address;
+    submitter?: Address;
+    rpcUrl?: string;
+    chainId?: number;
+    /** Injected client (tests); otherwise built from rpcUrl or the chain's public RPC. */
+    client?: Pick<PublicClient, "getTransactionReceipt" | "getChainId">;
+  },
 ): Promise<AnchorCheck> {
   const chain = opts.chainId ? chainById(opts.chainId) : undefined;
-  const client = createPublicClient({
-    chain,
-    transport: http(opts.rpcUrl ?? chain?.rpcUrls.default.http[0]),
-  });
+  const client =
+    opts.client ??
+    createPublicClient({ chain, transport: http(opts.rpcUrl ?? chain?.rpcUrls.default.http[0]) });
   const expectedHash = hashPayload(canonicalPayloadBytes(bundle.payload)).keccak256;
   const expectedTrace = traceIdToBytes32(bundle.payload.trace.id);
   const errors: string[] = [];
-  const checks = {
+  const checks: AnchorCheck["checks"] = {
     txSucceeded: false,
     emittedByRegistry: false,
     traceIdMatches: false,
     hashMatches: false,
+    ...(opts.submitter ? { submitterMatches: false } : {}),
   };
 
   const [receipt, chainId] = await Promise.all([
@@ -86,6 +97,14 @@ export async function verifyAnchor(
       }
     } catch {
       /* not this event */
+    }
+  }
+  if (opts.submitter && checks.hashMatches && onChain) {
+    checks.submitterMatches = isAddressEqual(onChain.submitter, opts.submitter);
+    if (!checks.submitterMatches) {
+      errors.push(
+        `anchor was submitted by ${onChain.submitter}, not the operator ${opts.submitter}`,
+      );
     }
   }
   if (!checks.emittedByRegistry)

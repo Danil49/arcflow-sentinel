@@ -1,4 +1,5 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { errorText } from "@sentinel/config";
 import {
   enqueueJob,
   getDelivery,
@@ -180,7 +181,7 @@ export function createWebhookHandler(
       }
       error = `HTTP ${res.status}`;
     } catch (err) {
-      error = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+      error = errorText(err);
     }
     await recordDeliveryAttempt(db, delivery.id, {
       status: lastAttempt ? "dead" : "pending",

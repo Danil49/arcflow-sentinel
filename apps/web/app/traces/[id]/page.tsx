@@ -45,6 +45,11 @@ export default async function TracePage({ params }: Props) {
           {chainName(t.route.sourceChain)} to {chainName(t.route.destinationChain)} over CCTP
           (domain {t.route.sourceDomain} to {t.route.destinationDomain})
         </p>
+        {t.isDemo && (
+          <p className="mt-3 inline-block rounded-sm border border-ink-soft px-2 py-0.5 text-sm text-ink-soft">
+            Historical demo: a real past transfer loaded from recorded data, not live monitoring
+          </p>
+        )}
         <p className="mt-2 text-[clamp(2.75rem,7vw,4.75rem)] font-extrabold leading-none tracking-[-0.02em]">
           {amount}
           <span className="ml-3 text-[0.4em] font-bold tracking-normal text-ink-soft">USDC</span>

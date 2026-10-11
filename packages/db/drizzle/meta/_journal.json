@@ -29,6 +29,13 @@
       "when": 1791724602114,
       "tag": "0003_evidence_anchoring",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791725626733,
+      "tag": "0004_rate_limits_and_demo",
+      "breakpoints": true
     }
   ]
 }
