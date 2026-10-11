@@ -1,0 +1,27 @@
+{
+  "name": "@sentinel/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "vitest run --passWithNoTests",
+    "compile": "tsx scripts/compile.ts",
+    "deploy": "tsx --env-file-if-exists=../../.env scripts/deploy.ts"
+  },
+  "dependencies": {
+    "@sentinel/chains": "workspace:*",
+    "@sentinel/config": "workspace:*",
+    "viem": "^2.57.3"
+  },
+  "devDependencies": {
+    "@ethereumjs/common": "10.1.3",
+    "@ethereumjs/evm": "10.1.3",
+    "@ethereumjs/util": "10.1.3",
+    "abitype": "1.2.3",
+    "solc": "0.8.35"
+  }
+}

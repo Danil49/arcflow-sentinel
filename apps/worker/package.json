@@ -16,6 +16,7 @@
   "dependencies": {
     "@sentinel/chains": "workspace:*",
     "@sentinel/config": "workspace:*",
+    "@sentinel/contracts": "workspace:*",
     "@sentinel/core": "workspace:*",
     "@sentinel/db": "workspace:*",
     "@sentinel/evidence": "workspace:*",

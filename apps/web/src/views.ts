@@ -54,12 +54,29 @@ export async function loadTraceView(ctx: ApiContext, rawId: string) {
       evaluatedAt: i.evaluatedAt,
     })),
     latestEvidence: bundles[0]
-      ? {
-          keccak256: bundles[0].keccak256,
-          sha256: bundles[0].sha256,
-          anchorTxHash: bundles[0].anchorTxHash,
-        }
+      ? { keccak256: bundles[0].keccak256, sha256: bundles[0].sha256, status: bundles[0].status }
       : null,
+    /** Most recent anchoring attempt (any bundle), so a pending or failed one is visible too. */
+    anchor: (() => {
+      const b = bundles.find((x) => x.anchorStatus);
+      if (!b) return null;
+      return {
+        status: b.anchorStatus!,
+        network: b.anchorNetwork,
+        txHash: b.anchorTxHash,
+        blockNumber: b.anchorBlockNumber?.toString() ?? null,
+        anchoredAt: b.anchoredAt,
+        error: b.anchorError,
+        keccak256: b.keccak256,
+        isLatestEvidence: b.id === bundles[0]!.id,
+        explorerUrl:
+          b.anchorTxHash && b.anchorNetwork === ctx.anchor.network
+            ? ctx.anchor.explorerTxUrl(b.anchorTxHash)
+            : null,
+      };
+    })(),
+    anchorNetwork: ctx.anchor.network,
+    anchoringEnabled: ctx.anchor.mode !== "off" && ctx.anchor.registry !== null,
     signingEnabled: ctx.signer !== null,
   };
 }

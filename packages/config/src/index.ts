@@ -53,9 +53,38 @@ export const stageDeadlinesOverrideSchema = z
   .strict();
 export type StageDeadlinesOverride = z.infer<typeof stageDeadlinesOverrideSchema>;
 
+const usdcAmount = z.string().regex(/^\d+(\.\d{1,18})?$/, "must be a decimal USDC amount");
+
+/** Evidence anchoring on Arc. Independent of CCTP_NETWORK: monitor mainnet, anchor on testnet. */
+const anchorEnv = {
+  /** 32-byte Ed25519 seed (hex) that signs evidence bundles. Generate: pnpm --filter @sentinel/evidence keygen */
+  EVIDENCE_SIGNING_KEY: z
+    .string()
+    .regex(/^(0x)?[0-9a-fA-F]{64}$/, "must be 32 bytes of hex")
+    .optional(),
+  ANCHOR_NETWORK: z.enum(["testnet", "mainnet"]).default("testnet"),
+  /** off: never anchor; manual: only via POST /api/traces/{id}/anchor; terminal: also when a trace reaches a final state. */
+  ANCHOR_MODE: z.enum(["off", "manual", "terminal"]).default("manual"),
+  /** Hot key that pays anchoring gas (USDC on Arc). Use a dedicated, minimally funded account. */
+  ANCHOR_PRIVATE_KEY: z
+    .string()
+    .regex(/^(0x)?[0-9a-fA-F]{64}$/, "must be 32 bytes of hex")
+    .optional(),
+  /** EvidenceRegistry address on ANCHOR_NETWORK (printed by `pnpm --filter @sentinel/contracts deploy`). */
+  EVIDENCE_REGISTRY_ADDRESS: z
+    .string()
+    .regex(/^0x[0-9a-fA-F]{40}$/, "must be an address")
+    .optional(),
+  /** Refuse to send an anchor whose worst-case fee exceeds this (USDC). */
+  ANCHOR_MAX_FEE_USDC: usdcAmount.default("0.05"),
+  /** Stop anchoring when the anchor account balance falls below this (USDC). */
+  ANCHOR_MIN_BALANCE_USDC: usdcAmount.default("0.5"),
+};
+
 /** Env shared by everything that reads/writes traces (worker and web API). */
 export const pipelineEnvSchema = chainEnvSchema
   .extend({
+    ...anchorEnv,
     DATABASE_URL: z.string().min(1),
     /** Comma-separated webhook endpoints; every status change is delivered to each. */
     WEBHOOK_URLS: csv.pipe(z.array(webhookUrl)),
@@ -100,11 +129,6 @@ export type WorkerEnv = z.infer<typeof workerEnvSchema>;
 export const webEnvSchema = pipelineEnvSchema.safeExtend({
   /** Bearer tokens accepted for privileged endpoints (confirm, webhook test). */
   API_KEYS: csv.pipe(z.array(z.string().min(24))),
-  /** 32-byte Ed25519 seed (hex) that signs evidence bundles. Generate: pnpm --filter @sentinel/evidence keygen */
-  EVIDENCE_SIGNING_KEY: z
-    .string()
-    .regex(/^(0x)?[0-9a-fA-F]{64}$/, "must be 32 bytes of hex")
-    .optional(),
 });
 export type WebEnv = z.infer<typeof webEnvSchema>;
 

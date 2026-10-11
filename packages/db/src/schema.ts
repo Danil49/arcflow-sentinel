@@ -223,7 +223,18 @@ export const evidenceBundles = pgTable(
     keyId: text("key_id").notNull(),
     status: text("status").notNull(),
     bundle: jsonb("bundle").notNull(),
+    /** submitted -> confirmed | failed. Null = never anchored. */
+    anchorStatus: text("anchor_status", { enum: ["submitted", "confirmed", "failed"] }),
+    anchorNetwork: text("anchor_network"),
+    anchorChainId: integer("anchor_chain_id"),
+    anchorRegistry: text("anchor_registry"),
+    anchorSubmitter: text("anchor_submitter"),
     anchorTxHash: text("anchor_tx_hash"),
+    /** Signed raw tx, kept until confirmed so a crash can rebroadcast the same tx (same nonce). */
+    anchorRawTx: text("anchor_raw_tx"),
+    anchorBlockNumber: bigint("anchor_block_number", { mode: "bigint" }),
+    anchorCostWei: uint256("anchor_cost_wei"),
+    anchorError: text("anchor_error"),
     anchoredAt: ts("anchored_at"),
     createdAt: ts("created_at").notNull().defaultNow(),
   },

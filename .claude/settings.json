@@ -28,9 +28,8 @@
       "Bash(pnpm exec vitest *)",
       "Bash(pnpm exec tsc *)",
       "Bash(pnpm turbo *)",
-      "Bash(arc-forge build *)",
-      "Bash(arc-forge test *)",
-      "Bash(arc-forge fmt *)"
+      "Bash(pnpm --filter @sentinel/contracts compile)",
+      "Bash(pnpm --filter @sentinel/contracts test)"
     ],
     "deny": [
       "Read(./.env)",

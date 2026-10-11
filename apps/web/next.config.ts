@@ -6,6 +6,7 @@ const config: NextConfig = {
     "@sentinel/core",
     "@sentinel/chains",
     "@sentinel/config",
+    "@sentinel/contracts",
     "@sentinel/db",
     "@sentinel/worker",
   ],

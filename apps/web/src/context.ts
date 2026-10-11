@@ -1,4 +1,5 @@
-import { IRIS_BASE_URL, type RouteChain } from "@sentinel/chains";
+import { anchorChain, IRIS_BASE_URL, type AnchorNetwork, type RouteChain } from "@sentinel/chains";
+import { registryAddress } from "@sentinel/contracts";
 import { parseEnv, webEnvSchema } from "@sentinel/config";
 import { connect, type Db } from "@sentinel/db";
 import { signerFromSeed, type EvidenceSigner } from "@sentinel/evidence";
@@ -23,6 +24,17 @@ export interface ApiContext {
   network: "mainnet" | "testnet";
   /** Null when EVIDENCE_SIGNING_KEY is not configured (evidence endpoints then return 503). */
   signer: EvidenceSigner | null;
+  /**
+   * Where evidence is anchored. The web app never holds the anchor key: it only queues
+   * evidence.anchor jobs, which the worker signs. Null registry = anchoring unavailable.
+   */
+  anchor: {
+    mode: "off" | "manual" | "terminal";
+    network: AnchorNetwork;
+    chainId: number;
+    registry: `0x${string}` | null;
+    explorerTxUrl: (hash: string) => string;
+  };
   now: () => Date;
 }
 
@@ -51,6 +63,13 @@ export function contextFromEnv(env = parseEnv(webEnvSchema)): ApiContext {
     irisBaseUrl,
     network: env.CCTP_NETWORK,
     signer: env.EVIDENCE_SIGNING_KEY ? signerFromSeed(env.EVIDENCE_SIGNING_KEY) : null,
+    anchor: {
+      mode: env.ANCHOR_MODE,
+      network: env.ANCHOR_NETWORK,
+      chainId: anchorChain(env.ANCHOR_NETWORK).chain.id,
+      registry: registryAddress(env.ANCHOR_NETWORK, env.EVIDENCE_REGISTRY_ADDRESS),
+      explorerTxUrl: anchorChain(env.ANCHOR_NETWORK).explorerTxUrl,
+    },
     now: () => new Date(),
   };
 }

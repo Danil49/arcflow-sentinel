@@ -121,6 +121,14 @@ export function openApiDocument() {
           responses: { "200": { description: "Evidence bundle" }, ...problems(404, 503) },
         },
       },
+      "/api/traces/{id}/anchor": {
+        post: {
+          summary: "Anchor the trace's current evidence hash on Arc (queued; the worker signs)",
+          security: bearer,
+          parameters: idParam,
+          responses: { "202": { description: "Queued" }, ...problems(401, 404, 409, 503) },
+        },
+      },
       "/.well-known/sentinel-key.json": {
         get: {
           summary: "Public key that signs this deployment's evidence",

@@ -41,6 +41,9 @@ function view(over: Partial<TraceView["trace"]> = {}, extra: Partial<TraceView> 
     attestations: [],
     invariants: [],
     latestEvidence: null,
+    anchor: null,
+    anchorNetwork: "testnet",
+    anchoringEnabled: true,
     signingEnabled: true,
     ...extra,
   };

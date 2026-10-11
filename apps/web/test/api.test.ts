@@ -4,7 +4,7 @@ import { getTrace, jobs, webhookDeliveries } from "@sentinel/db";
 import { startTestDb, type TestDb } from "@sentinel/db/testing";
 import { refreshTrace, type PipelineDeps } from "@sentinel/worker";
 import { signerFromSeed, verifyEvidence, type EvidenceBundle } from "@sentinel/evidence";
-import { getEvidence, getPublicKey } from "../src/api/evidence.js";
+import { getEvidence, getPublicKey, postAnchor } from "../src/api/evidence.js";
 import { getLive, getReady, getRoutes, resetRoutesCache } from "../src/api/health.js";
 import { openApiDocument } from "../src/api/openapi.js";
 import {
@@ -78,6 +78,13 @@ beforeEach(async () => {
     irisBaseUrl: "https://iris.invalid",
     network: "mainnet",
     signer,
+    anchor: {
+      mode: "manual",
+      network: "testnet",
+      chainId: 5042002,
+      registry: "0xD37a99DC7a7CA2E3b1A75648886875E50a6b52FF",
+      explorerTxUrl: (h: string) => `https://testnet.arcscan.app/tx/${h}`,
+    },
     now,
   };
 });
@@ -295,6 +302,7 @@ describe("webhooks and health", () => {
       "/api/health/routes",
       "/api/traces",
       "/api/traces/{id}",
+      "/api/traces/{id}/anchor",
       "/api/traces/{id}/confirm",
       "/api/traces/{id}/events",
       "/api/traces/{id}/evidence",
@@ -335,5 +343,36 @@ describe("evidence", () => {
     expect((await get("00000000-0000-0000-0000-000000000000")).status).toBe(404);
     const noKey = { ...ctx, signer: null };
     expect((await handle(() => getPublicKey(noKey))()).status).toBe(503);
+  });
+});
+
+describe("POST /api/traces/{id}/anchor", () => {
+  const anchor = (c: ApiContext, id: string, h: Record<string, string> = auth) =>
+    handle(() => postAnchor(c, post(`/api/traces/${id}/anchor`, {}, h), id))();
+
+  it("requires auth, queues one job per trace, and publishes the registry", async () => {
+    const id = (await created()).json.traces[0].id;
+    expect((await anchor(ctx, id, {})).status).toBe(401);
+    const first = await anchor(ctx, id);
+    expect(first.status).toBe(202);
+    expect(await body(first)).toMatchObject({ queued: true, network: "testnet", chainId: 5042002 });
+    expect(await body(await anchor(ctx, id))).toMatchObject({ queued: false }); // deduplicated
+    expect(
+      (await t.db.select().from(jobs)).filter((j) => j.type === "evidence.anchor"),
+    ).toHaveLength(1);
+    expect((await body(await getPublicKey(ctx))).anchor).toEqual({
+      network: "testnet",
+      chainId: 5042002,
+      registry: "0xD37a99DC7a7CA2E3b1A75648886875E50a6b52FF",
+    });
+  });
+
+  it("409 when anchoring is off, 404 for unknown traces", async () => {
+    const id = (await created()).json.traces[0].id;
+    expect((await anchor({ ...ctx, anchor: { ...ctx.anchor, mode: "off" } }, id)).status).toBe(409);
+    expect((await anchor({ ...ctx, anchor: { ...ctx.anchor, registry: null } }, id)).status).toBe(
+      409,
+    );
+    expect((await anchor(ctx, "00000000-0000-0000-0000-000000000000")).status).toBe(404);
   });
 });

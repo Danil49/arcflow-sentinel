@@ -268,7 +268,11 @@ function Evidence({ view, origin }: { view: TraceView; origin: string }) {
   const t = view.trace;
   const suffix = view.latestEvidence ? `-${view.latestEvidence.keccak256.slice(2, 10)}` : "";
   const file = `sentinel-evidence-${t.id}${suffix}.json`;
-  const command = `npx pnpm@10.18.3 --filter @sentinel/evidence verify-evidence ${file} --key-url ${origin}/.well-known/sentinel-key.json`;
+  const anchorFlag =
+    view.anchor?.status === "confirmed" && view.anchor.isLatestEvidence && view.anchor.txHash
+      ? ` --anchor-tx ${view.anchor.txHash}`
+      : "";
+  const command = `npx pnpm@10.18.3 --filter @sentinel/evidence verify-evidence ${file} --key-url ${origin}/.well-known/sentinel-key.json${anchorFlag}`;
   return (
     <section aria-labelledby="evidence" className="mt-16 border-t-2 border-ink pt-6">
       <h2 id="evidence" className="text-xl font-bold">
@@ -304,9 +308,9 @@ function Evidence({ view, origin }: { view: TraceView; origin: string }) {
                 </dd>
               </div>
               <div className="grid gap-1 py-3 sm:grid-cols-[9.5rem_1fr] sm:gap-4">
-                <dt className="text-sm text-ink-soft">Anchored on Arc</dt>
-                <dd className="text-[0.95rem] text-ink-soft">
-                  {view.latestEvidence.anchorTxHash ?? "Not anchored yet"}
+                <dt className="text-sm text-ink-soft">On-chain anchor</dt>
+                <dd className="text-[0.95rem]">
+                  <AnchorState view={view} />
                 </dd>
               </div>
             </dl>
@@ -328,5 +332,58 @@ function Evidence({ view, origin }: { view: TraceView; origin: string }) {
         </p>
       )}
     </section>
+  );
+}
+
+const NETWORK_WORDS: Record<string, string> = { testnet: "Arc testnet", mainnet: "Arc mainnet" };
+
+/** Anchor status in words; a testnet anchor is always labelled as such. */
+function AnchorState({ view }: { view: TraceView }) {
+  const a = view.anchor;
+  if (!a) {
+    return (
+      <span className="text-ink-soft">
+        {view.anchoringEnabled
+          ? `Not anchored yet. Anchors go to ${NETWORK_WORDS[view.anchorNetwork]}.`
+          : "Anchoring is turned off on this deployment."}
+      </span>
+    );
+  }
+  const where = NETWORK_WORDS[a.network ?? ""] ?? "Arc";
+  const link =
+    a.txHash && a.explorerUrl ? (
+      <a
+        href={a.explorerUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="font-mono text-accent underline underline-offset-2"
+      >
+        {shortHash(a.txHash, 8, 6)}
+      </a>
+    ) : null;
+  if (a.status === "submitted")
+    return (
+      <span>
+        Sending to {where}… {link}
+      </span>
+    );
+  if (a.status === "failed") return <span className="text-fail">Anchoring failed: {a.error}</span>;
+  return (
+    <span>
+      Anchored on {where} in block {a.blockNumber} {link}
+      {a.anchoredAt && (
+        <span className="block text-sm text-ink-soft">{formatUtc(a.anchoredAt)}</span>
+      )}
+      {!a.isLatestEvidence && (
+        <span className="mt-1 block text-sm text-stuck">
+          The evidence changed after this anchor; the anchored hash belongs to an earlier version.
+        </span>
+      )}
+      {a.network === "testnet" && (
+        <span className="mt-1 block text-sm text-ink-soft">
+          A testnet anchor proves when the hash existed, but testnet is not a production record.
+        </span>
+      )}
+    </span>
   );
 }

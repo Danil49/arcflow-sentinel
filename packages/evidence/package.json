@@ -13,6 +13,7 @@
     "keygen": "tsx src/keygen-cli.ts"
   },
   "dependencies": {
+    "@sentinel/contracts": "workspace:*",
     "viem": "^2.57.3"
   }
 }

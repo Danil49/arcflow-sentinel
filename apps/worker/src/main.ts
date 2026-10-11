@@ -5,6 +5,8 @@ import { connect } from "@sentinel/db";
 import { collectorTick, type CollectorOptions } from "./collector.js";
 import { routeSidesFromEnv } from "./env.js";
 import { createHandlers } from "./handlers.js";
+import { signerFromSeed } from "@sentinel/evidence";
+import { anchorerFromEnv } from "./anchor.js";
 import { createIrisClient } from "./iris.js";
 import { runJobs } from "./runner.js";
 import { resolveDeadlines } from "./services.js";
@@ -28,6 +30,19 @@ const directions = {
   [sides.base.config.domain]: { ...common, source: sides.base, destination: sides.arc },
   [sides.arc.config.domain]: { ...common, source: sides.arc, destination: sides.base },
 };
+
+const anchorer = anchorerFromEnv(env);
+const anchorOptions =
+  anchorer && env.EVIDENCE_SIGNING_KEY && env.ANCHOR_MODE !== "off"
+    ? {
+        db,
+        anchorer,
+        signer: signerFromSeed(env.EVIDENCE_SIGNING_KEY),
+        payloadNetwork: env.CCTP_NETWORK,
+        mode: env.ANCHOR_MODE,
+        log,
+      }
+    : null;
 
 const abort = new AbortController();
 for (const sig of ["SIGINT", "SIGTERM"] as const) {
@@ -81,12 +96,20 @@ log("worker starting", {
   network: env.CCTP_NETWORK,
   collect: env.COLLECT,
   webhookEndpoints: webhooks?.urls.length ?? 0,
+  anchoring: anchorOptions
+    ? {
+        network: anchorer!.network,
+        registry: anchorer!.registry,
+        account: anchorer!.account.address,
+        mode: env.ANCHOR_MODE,
+      }
+    : "disabled",
 });
 await Promise.all([
   runJobs({
     db,
     workerId,
-    handlers: createHandlers(directions, { db, config: webhooks }),
+    handlers: createHandlers(directions, { db, config: webhooks }, anchorOptions),
     signal: abort.signal,
     log,
   }),

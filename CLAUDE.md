@@ -4,14 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-Phases 1–4 of the plan in `idea.md` are done:
+Phases 1–4 and 5a of the plan are done:
 
 - 1: skeleton and spike
 - 2: persistence, job queue and collectors
 - 3: lifecycle reducer, invariants, webhooks and the REST API
 - 4: signed evidence bundles, the verifier CLI and the trace UI
+- 5a: `EvidenceRegistry` deployed on Arc **testnet** and anchoring wired end to end
 
-Not built yet: the `EvidenceRegistry` contract and anchoring (Phase 5), and hardening such as rate limiting and demo seed data (Phase 6). Other reference files:
+Constraints, as of 2026-10-11:
+
+- No third-party programs can be installed (no Arc Foundry, no desktop wallets). npm libraries are fine.
+- The only key is a dedicated MetaMask account (`ANCHOR_PRIVATE_KEY`) holding testnet USDC; there is no mainnet USDC.
+
+So Sentinel monitors **mainnet** CCTP while anchoring on **testnet**. Mainnet anchoring is Phase 8, the last phase. Next up are Phase 6 (hardening, rate limiting, demo seed) and Phase 7 (self-hostable deployment). Other reference files:
 
 - `idea.md`: the product spec and source of truth. It defines scope, architecture, data model, invariants, API, contract, and a 7-day plan.
 - `docs-references.md`: an index (llms.txt style) of Arc docs. Use it to find the right Arc page to fetch.
@@ -32,9 +38,14 @@ pnpm isn't installed globally here, so run it as `npx pnpm@10.18.3 …` (the ver
 - Create a trace without the API: `pnpm --filter @sentinel/worker create-trace <sourceTxHash> --from base|arc`.
 - Web/API: `pnpm --filter @sentinel/web dev`, or `build` then `start`. `pnpm --filter @sentinel/web build` must keep passing, because it is the only check that the workspace packages bundle under webpack.
 - Example Arc→Base transfers, and how to find more: `docs/discovering-arc-to-base-transfers.md`.
+- Contracts (no Foundry):
+  - `pnpm --filter @sentinel/contracts compile`: solc-js. Commit `artifacts/`; a test fails if they drift from the source.
+  - `pnpm --filter @sentinel/contracts test`: runs on an in-process `@ethereumjs/evm`.
+  - `pnpm --filter @sentinel/contracts deploy --network testnet|mainnet [--yes]`: viem with `ANCHOR_PRIVATE_KEY`. It is a dry run without `--yes`, and on success writes `deployments/<network>.json`.
 - Evidence:
   - Generate a signing key with `pnpm --filter @sentinel/evidence keygen`. It prints `EVIDENCE_SIGNING_KEY` and the public key.
-  - Verify a bundle with `pnpm --filter @sentinel/evidence verify-evidence <bundle.json> --key-url <site>/.well-known/sentinel-key.json`, or pass `--public-key <hex>`. Exit codes: 0 valid, 1 invalid, 2 usage or read error.
+  - Verify a bundle with `pnpm --filter @sentinel/evidence verify-evidence <bundle.json> --key-url <site>/.well-known/sentinel-key.json [--anchor-tx <hash>]`, or pass `--public-key <hex>`. Exit codes: 0 valid, 1 invalid, 2 usage or read error.
+  - With `--anchor-tx`, the registry and chain come from the published key file. Without `--rpc`, the CLI uses the chain's public RPC.
 - Scripts read the root `.env` (see `.env.example`). Variables already set in the shell take precedence over it.
 - The `db` and `worker` tests start Postgres through testcontainers (`postgres:17-alpine`). They work with Podman via `/var/run/docker.sock`; Ryuk is disabled automatically.
 
@@ -87,6 +98,14 @@ pnpm isn't installed globally here, so run it as `npx pnpm@10.18.3 …` (the ver
   - The payload deliberately has **no generation timestamp**, and its collections are sorted. Unchanged evidence therefore produces byte-identical bundles, so a keccak256 anchored on Arc stays meaningful. Don't add volatile fields such as `evaluatedAt`.
   - Verification must use the operator's published key, never the key embedded in the bundle.
   - `apps/worker/src/evidence.ts` assembles the payload from DB rows, including reorged (`removed`) events. Bundles are stored in `evidence_bundles`, one row per (trace, keccak256).
+- Anchoring:
+  - `packages/contracts`: the emit-only `EvidenceRegistry.sol`, typed ABI, stable `ANCHOR_STATUS` codes (append-only), and committed deployments. `registryAddress()` defaults to the deployment file.
+  - `apps/worker/src/anchor.ts`:
+    - Under a per-account advisory lock it seals, signs, persists the raw tx, and only then broadcasts.
+    - Resuming after a crash rebroadcasts the same tx, so an anchor is never sent twice. One anchor per (trace, keccak256).
+    - It enforces the `ANCHOR_MAX_FEE_USDC` and `ANCHOR_MIN_BALANCE_USDC` caps and keeps `maxFeePerGas` at or above Arc's 20 Gwei floor.
+  - The web app never holds the anchor key: `POST /api/traces/{id}/anchor` only queues `evidence.anchor`.
+  - Testnet registry: `0xD37a99DC7a7CA2E3b1A75648886875E50a6b52FF` (chain 5042002). The deploy cost 0.0034 USDC; an anchor costs about 0.0008 USDC.
 - UI (`apps/web/app`, `src/ui`): server components read the DB through `src/views.ts`. There are no chain calls at render time.
   - `stations.ts` maps a trace onto the route line. Its tests are in `test/ui.test.ts`.
   - `LiveRefresh` re-renders every 5 s while the trace can still change.
@@ -134,13 +153,13 @@ Stack decisions:
 - The worker uses a Postgres job table (`FOR UPDATE SKIP LOCKED`), not BullMQ/Redis.
 - Database access goes through Drizzle.
 - Chain access is viem, which has Arc built in.
-- Contracts use Solidity with Arc Foundry.
+- Contracts are Solidity, compiled with solc-js and deployed with viem (no Foundry; see the Arc notes below).
 
 The phase-by-phase plan is in `~/.claude/plans/frolicking-stargazing-snowflake.md`.
 
 ## Tooling and permissions
 
-`.claude/settings.json` allowlists pnpm, turbo and arc-forge commands. Editing `pnpm-lock.yaml` and `.env` is denied: change dependencies through pnpm. `git push`, `--no-verify` commits, and hard resets are denied.
+`.claude/settings.json` allowlists pnpm and turbo commands (Arc Foundry is not used). Editing `pnpm-lock.yaml` and `.env` is denied: change dependencies through pnpm. `git push`, `--no-verify` commits, and hard resets are denied.
 
 ## Arc domain notes (from docs-references.md)
 
@@ -150,5 +169,5 @@ The project targets Arc, Circle's L1 chain. Use the `circle:use-arc` skill and o
 - All native USDC Transfer events are emitted by the system address `0xffffFFFfFFffffffffffffffFfFFFfffFFfFFfFE` (EIP-7708). Indexers and monitors must watch this address.
 - The mempool enforces a 20 Gwei `maxFeePerGas` floor. Blocklist reverts consume gas without producing a receipt. Sends to `address(0)` revert.
 - Finality is deterministic and arrives in under 1s, so transactions are either pending or final and there's no need to wait for confirmations.
-- For contracts, use Arc Foundry (`arc-forge`, `arc-cast`, `arc-anvil`).
+- Arc docs recommend Arc Foundry. This project can't install it, so it compiles with solc-js, tests on an in-process EVM, and deploys with viem. That's sound only because `EvidenceRegistry` never touches value or USDC; recheck if the contract grows.
 - Canonical references: https://docs.arc.io/arc/references/evm-differences.md and https://docs.arc.io/arc/references/contract-addresses.md
