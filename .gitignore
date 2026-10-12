@@ -17,3 +17,6 @@ contracts/cache/
 skills-lock.json
 
 .DS_Store
+# Deployment secrets and backups (see docs/self-hosting.md)
+worker.env
+backups/

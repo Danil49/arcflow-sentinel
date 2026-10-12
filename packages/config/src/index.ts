@@ -163,7 +163,10 @@ export function parseEnv<S extends z.ZodType>(
   schema: S,
   env: NodeJS.ProcessEnv = process.env,
 ): z.infer<S> {
-  const result = schema.safeParse(env);
+  // `NAME=` in an env file sets an empty string; treat it as unset so optional settings and
+  // defaults apply (copying .env.example and leaving fields blank must work).
+  const cleaned = Object.fromEntries(Object.entries(env).filter(([, v]) => v !== ""));
+  const result = schema.safeParse(cleaned);
   if (!result.success) {
     // Report variable names only; values may be secrets.
     const issues = result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");

@@ -123,6 +123,14 @@ pnpm isn't installed globally here, so run it as `npx pnpm@10.18.3 …` (the ver
   - Verifiers check the anchor emitter (the registry) and its submitter (`ANCHOR_SUBMITTER_ADDRESS`, published in the key file), because the registry is permissionless.
 - Demo data: `pnpm --filter @sentinel/worker seed-demo` loads `fixtures/*/meta.json` dirs offline as `is_demo` traces. The UI labels them historical.
 - Docs: `README.md`, `docs/threat-model.md`, `docs/adr/`, `SECURITY.md`, `docs/self-hosting.md`.
+- Production: `docker compose -f compose.yaml -f compose.prod.yaml up -d --build`.
+  - It adds Caddy (`deploy/Caddyfile`, automatic HTTPS) and keeps web unpublished.
+  - It sets `TRUST_PROXY=true`, which is safe because Caddy replaces `X-Forwarded-For`.
+  - `ANCHOR_PRIVATE_KEY` goes in the worker-only `worker.env`.
+  - Backups: `deploy/backup.sh`. Anchor account check: `pnpm --filter @sentinel/worker anchor-status`.
+  - The VPS guide is `docs/self-hosting.md`.
+- `parseEnv` treats empty values (`NAME=`) as unset. Keep it that way: deployments copy `.env.example` with blank fields.
+- Never print `compose config` output: it inlines `.env` secrets.
 - Containers: `podman compose up -d --build`.
   - Compose overrides `DATABASE_URL` with the bundled Postgres.
   - The image runs as `node`, copies no `.env`, and keeps the pnpm store outside `/app`.

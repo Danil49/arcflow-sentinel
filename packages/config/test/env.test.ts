@@ -55,3 +55,24 @@ describe("pipelineEnvSchema", () => {
     );
   });
 });
+
+describe("empty values", () => {
+  it("treats NAME= (empty) as unset, so blanks copied from .env.example are valid", () => {
+    const env = parseEnv(pipelineEnvSchema, {
+      DATABASE_URL: "postgres://x",
+      EVIDENCE_SIGNING_KEY: "",
+      ANCHOR_PRIVATE_KEY: "",
+      WEBHOOK_URLS: "",
+      WEBHOOK_SECRET: "",
+      ANCHOR_MODE: "",
+      STAGE_DEADLINES_JSON: "",
+    });
+    expect(env).toMatchObject({
+      WEBHOOK_URLS: [],
+      ANCHOR_MODE: "manual",
+      ANCHOR_NETWORK: "testnet",
+    });
+    expect(env.EVIDENCE_SIGNING_KEY).toBeUndefined();
+    expect(() => parseEnv(pipelineEnvSchema, { DATABASE_URL: "" })).toThrow(/DATABASE_URL/);
+  });
+});

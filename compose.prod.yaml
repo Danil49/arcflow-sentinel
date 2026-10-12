@@ -1,0 +1,55 @@
+# Production overrides for a single VPS. Use together with compose.yaml:
+#   docker compose -f compose.yaml -f compose.prod.yaml up -d --build
+# Adds Caddy (automatic HTTPS), keeps the app off public ports, puts the anchor key in a
+# worker-only env file, and caps log size and memory. See docs/self-hosting.md.
+
+x-logging: &logging
+  logging:
+    driver: json-file
+    options: { max-size: "20m", max-file: "5" }
+
+services:
+  caddy:
+    image: docker.io/library/caddy:2.10.2-alpine
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS in .env (your domain)}
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+      - "${HTTPS_PORT:-443}:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      web: { condition: service_healthy }
+    restart: unless-stopped
+    deploy: { resources: { limits: { memory: 256m } } }
+    <<: *logging
+
+  web:
+    # Only Caddy talks to the app; nothing is published on the host.
+    ports: !reset []
+    environment:
+      TRUST_PROXY: "true"
+    deploy: { resources: { limits: { memory: 1g } } }
+    <<: *logging
+
+  worker:
+    # ANCHOR_PRIVATE_KEY lives only here (worker.env), never in the shared .env that web also reads.
+    env_file:
+      - .env
+      - worker.env
+    deploy: { resources: { limits: { memory: 768m } } }
+    <<: *logging
+
+  migrate:
+    <<: *logging
+
+  postgres:
+    deploy: { resources: { limits: { memory: 1g } } }
+    <<: *logging
+
+volumes:
+  caddy_data:
+  caddy_config:
