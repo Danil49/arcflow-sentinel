@@ -1,5 +1,6 @@
 import { parseAbi, type Hex } from "viem";
 import artifact from "../artifacts/EvidenceRegistry.json" with { type: "json" };
+import mainnetDeployment from "../deployments/mainnet.json" with { type: "json" };
 import testnetDeployment from "../deployments/testnet.json" with { type: "json" };
 
 /** Typed ABI (test/artifact.test.ts asserts it equals the compiled one). */
@@ -49,9 +50,10 @@ export interface RegistryDeployment {
   blockNumber: string;
 }
 
-/** Committed deployments (deployments/<network>.json). Mainnet is added in Phase 8. */
+/** Committed deployments (deployments/<network>.json), verified against the artifact on deploy. */
 export const REGISTRY_DEPLOYMENTS: Partial<Record<"testnet" | "mainnet", RegistryDeployment>> = {
   testnet: testnetDeployment as RegistryDeployment,
+  mainnet: mainnetDeployment as RegistryDeployment,
 };
 
 /** EVIDENCE_REGISTRY_ADDRESS wins; otherwise the committed deployment for the network, if any. */

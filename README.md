@@ -33,12 +33,11 @@ It is not a block explorer. It never holds user funds. The only transactions it 
 
 ## Status
 
-| Area                                                 | State                                                                                          |
-| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Monitoring, lifecycle, invariants, API, webhooks, UI | Done. Verified against real mainnet transfers in both directions                               |
-| Evidence bundles and verifier                        | Done                                                                                           |
-| Anchoring                                            | Live on **Arc testnet**: registry `0xD37a99DC7a7CA2E3b1A75648886875E50a6b52FF` (chain 5042002) |
-| Arc mainnet anchoring                                | Pending: needs mainnet USDC for gas. See [Limitations](#limitations)                           |
+| Area                                                 | State                                                                                                                                                      |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Monitoring, lifecycle, invariants, API, webhooks, UI | Done. Verified against real mainnet transfers in both directions                                                                                           |
+| Evidence bundles and verifier                        | Done                                                                                                                                                       |
+| Anchoring                                            | Live on **Arc mainnet**: registry `0xD37a99DC7a7CA2E3b1A75648886875E50a6b52FF` (chain 5042). The same address on Arc testnet (5042002) is used for testing |
 
 ## Quick start
 
@@ -119,7 +118,7 @@ npx pnpm@10.18.3 --filter @sentinel/web build
 
 - **Route:** Arc ↔ Base only, for CCTP V2 Standard and Fast burns of USDC. Gateway, StableFX, CPN and other bridges are out of scope.
 - **Read-only:** no automated recovery or resubmission. Sentinel reports a stuck transfer; it does not fix it.
-- **Testnet anchors:** Arc testnet anchors are evidence of _when a hash existed_, but testnet is not a production record. The UI and verifier label them. Mainnet anchoring is a one-command deploy once the anchor account holds mainnet USDC.
+- **Anchor network:** the registry has the same address on Arc mainnet and testnet, so an anchor is identified by (chain id, tx hash). The verifier enforces the chain id published in `/.well-known/sentinel-key.json`. Testnet anchors are labelled as such in the UI.
 - **RPC trust:** detection is only as good as the RPCs and the Iris API. Conflicting observations are flagged as anomalies and never produce a FAILED verdict. Cross-checking several RPCs is not implemented.
 - **Free-tier RPCs:** these often cap `eth_getLogs` at about 10 blocks. Tracing doesn't need wide scans: mints are located by binary search over `usedNonces`. Passive collection (`COLLECT`) costs about 21k log calls a day at that span.
 - **Fee-bearing fixtures:** the recorded transfers all have a fee of 0. Fee accounting is tested with derived fixtures.

@@ -122,3 +122,21 @@ describe("artifact and helpers", () => {
     expect(() => traceIdToBytes32("nope")).toThrow();
   });
 });
+
+describe("committed deployments", () => {
+  it("both networks are recorded with the current artifact's source hash", async () => {
+    const { REGISTRY_DEPLOYMENTS, registryAddress } = await import("../src/index.js");
+    for (const n of ["testnet", "mainnet"] as const) {
+      const d = REGISTRY_DEPLOYMENTS[n]!;
+      expect(d.address).toMatch(/^0x[0-9a-fA-F]{40}$/);
+      expect((d as unknown as { sourceSha256: string }).sourceSha256).toBe(
+        evidenceRegistryArtifact.sourceSha256,
+      );
+      expect(registryAddress(n)).toBe(d.address);
+    }
+    expect(REGISTRY_DEPLOYMENTS.mainnet!.chainId).toBe(5042);
+    expect(registryAddress("mainnet", "0x0000000000000000000000000000000000000001")).toBe(
+      "0x0000000000000000000000000000000000000001",
+    );
+  });
+});

@@ -1,4 +1,5 @@
 import { asc, eq } from "drizzle-orm";
+import { anchorChain } from "@sentinel/chains";
 import {
   attestationObservations,
   getInvariantResults,
@@ -69,9 +70,10 @@ export async function loadTraceView(ctx: ApiContext, rawId: string) {
         error: b.anchorError,
         keccak256: b.keccak256,
         isLatestEvidence: b.id === bundles[0]!.id,
+        // Each anchor links to the explorer of the network it was made on.
         explorerUrl:
-          b.anchorTxHash && b.anchorNetwork === ctx.anchor.network
-            ? ctx.anchor.explorerTxUrl(b.anchorTxHash)
+          b.anchorTxHash && (b.anchorNetwork === "testnet" || b.anchorNetwork === "mainnet")
+            ? anchorChain(b.anchorNetwork).explorerTxUrl(b.anchorTxHash)
             : null,
       };
     })(),

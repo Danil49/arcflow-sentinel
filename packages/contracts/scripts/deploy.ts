@@ -7,7 +7,7 @@
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { createPublicClient, createWalletClient, formatUnits, http } from "viem";
+import { createPublicClient, createWalletClient, formatUnits, getAddress, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { anchorChain, arcFees, type AnchorNetwork } from "@sentinel/chains";
 import { evidenceRegistryArtifact, evidenceRegistryBytecode } from "../src/index.js";
@@ -72,7 +72,7 @@ const cost = receipt.gasUsed * receipt.effectiveGasPrice;
 const record = {
   network,
   chainId,
-  address: receipt.contractAddress,
+  address: getAddress(receipt.contractAddress),
   txHash: hash,
   blockNumber: receipt.blockNumber.toString(),
   deployer: account.address,

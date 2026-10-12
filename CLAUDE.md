@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-Phases 1–4, 5a, 6 and 7 of the plan are done:
+All phases of the plan (1–8) are done:
 
 - 1: skeleton and spike
 - 2: persistence, job queue and collectors
@@ -13,13 +13,14 @@ Phases 1–4, 5a, 6 and 7 of the plan are done:
 - 5a: `EvidenceRegistry` deployed on Arc **testnet** and anchoring wired end to end
 - 6: hardening (secret redaction, rate limiting, submitter-checked anchors), demo seed, and docs (README, threat model, ADRs, SECURITY, LICENSE)
 - 7: a self-hostable container image (`Containerfile`) and `compose.yaml` (Postgres, migrate, web, worker); see `docs/self-hosting.md`
+- 8: `EvidenceRegistry` on Arc **mainnet**, with a real anchor verified over the public RPC
 
 Constraints, as of 2026-10-11:
 
 - No third-party programs can be installed (no Arc Foundry, no desktop wallets). npm libraries are fine.
 - The only key is a dedicated MetaMask account (`ANCHOR_PRIVATE_KEY`) holding testnet USDC; there is no mainnet USDC.
 
-So Sentinel monitors **mainnet** CCTP while anchoring on **testnet**. Mainnet anchoring is Phase 8, the last phase. What remains is Phase 8: mainnet anchoring, once the anchor account has mainnet USDC. Other reference files:
+The anchor account later received a little mainnet USDC. `ANCHOR_NETWORK` selects testnet (the default) or mainnet; set `ANCHOR_NETWORK=mainnet` for production anchoring.
 
 - `idea.md`: the product spec and source of truth. It defines scope, architecture, data model, invariants, API, contract, and a 7-day plan.
 - `docs-references.md`: an index (llms.txt style) of Arc docs. Use it to find the right Arc page to fetch.
@@ -107,7 +108,9 @@ pnpm isn't installed globally here, so run it as `npx pnpm@10.18.3 …` (the ver
     - Resuming after a crash rebroadcasts the same tx, so an anchor is never sent twice. One anchor per (trace, keccak256).
     - It enforces the `ANCHOR_MAX_FEE_USDC` and `ANCHOR_MIN_BALANCE_USDC` caps and keeps `maxFeePerGas` at or above Arc's 20 Gwei floor.
   - The web app never holds the anchor key: `POST /api/traces/{id}/anchor` only queues `evidence.anchor`.
-  - Testnet registry: `0xD37a99DC7a7CA2E3b1A75648886875E50a6b52FF` (chain 5042002). The deploy cost 0.0034 USDC; an anchor costs about 0.0008 USDC.
+  - Registry: `0xD37a99DC7a7CA2E3b1A75648886875E50a6b52FF` on **both** Arc mainnet (5042) and testnet (5042002). The address is the same because each deploy was the account's first transaction on its chain.
+  - Because the address is shared, always pair an anchor with its chain id. The verifier enforces the published `chainId`.
+  - Mainnet costs: about 0.0021 USDC to deploy and about 0.0005 USDC per anchor.
 - UI (`apps/web/app`, `src/ui`): server components read the DB through `src/views.ts`. There are no chain calls at render time.
   - `stations.ts` maps a trace onto the route line. Its tests are in `test/ui.test.ts`.
   - `LiveRefresh` re-renders every 5 s while the trace can still change.

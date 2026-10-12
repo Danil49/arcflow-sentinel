@@ -1,0 +1,13 @@
+{
+  "network": "mainnet",
+  "chainId": 5042,
+  "address": "0xD37a99DC7a7CA2E3b1A75648886875E50a6b52FF",
+  "txHash": "0xf3e89ce4ea742bbfc4763d09e7dc4e5c25d10b55afe30d649c21b6a2b36a6f5e",
+  "blockNumber": "25573336",
+  "deployer": "0x6f696845ba4e28436d48FDc023C19E849e8154fc",
+  "gasUsed": "104907",
+  "costUsdc": "0.002098140120852864",
+  "compiler": "solc-js 0.8.35+commit.47b9dedd.Emscripten.clang",
+  "sourceSha256": "73a30151675207cf60d36c60677feaa89c0b1323965359b50b5b9adaf1d9f92c",
+  "deployedAt": "2026-10-12T11:16:33.027Z"
+}
