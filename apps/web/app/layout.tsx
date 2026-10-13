@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { IBM_Plex_Mono, Schibsted_Grotesk } from "next/font/google";
+import { THEME_BOOT_SCRIPT } from "@/ui/theme";
+import { ThemeToggle } from "@/ui/theme-toggle";
 import "./globals.css";
 
 const grotesk = Schibsted_Grotesk({
@@ -24,7 +26,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={`${grotesk.variable} ${mono.variable}`}>
+    // suppressHydrationWarning: the boot script may set data-theme before React hydrates.
+    <html lang="en" className={`${grotesk.variable} ${mono.variable}`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
+      </head>
       <body>
         <a
           href="#main"
@@ -36,23 +42,39 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <Link href="/" className="text-lg font-bold tracking-tight">
             ArcFlow Sentinel
           </Link>
-          <nav className="flex gap-5 text-sm text-ink-soft">
-            <a href="/api/openapi.json" className="hover:text-ink">
+          <nav className="flex items-baseline gap-5 text-sm text-ink-soft">
+            <Link href="/docs/api" className="hover:text-ink">
               API
-            </a>
-            <a href="/.well-known/sentinel-key.json" className="hover:text-ink">
-              Signing key
-            </a>
+            </Link>
+            <ThemeToggle />
           </nav>
         </header>
         <main id="main" className="mx-auto max-w-6xl px-5 pb-20 sm:px-8">
           {children}
         </main>
         <footer className="mx-auto max-w-6xl px-5 sm:px-8">
-          <p className="border-t border-rule py-6 text-sm text-ink-soft">
-            Read-only monitor for CCTP V2 transfers between Arc and Base. It never holds your funds;
-            the only transactions it sends anchor evidence hashes on Arc.
-          </p>
+          <div className="grid gap-3 border-t border-rule py-6 text-sm text-ink-soft sm:grid-cols-2 sm:gap-8">
+            <p>
+              Read-only monitor for CCTP V2 transfers between Arc and Base. It never holds your
+              funds; the only transactions it sends anchor evidence hashes on Arc.
+            </p>
+            <p>
+              Every evidence file this site produces is signed. Anyone can check a file against the{" "}
+              <a
+                href="/.well-known/sentinel-key.json"
+                className="text-accent underline underline-offset-2"
+              >
+                public signing key
+              </a>{" "}
+              with the open-source verifier, so you don&apos;t have to trust this page.{" "}
+              <Link
+                href="/docs/api#verify-evidence"
+                className="text-accent underline underline-offset-2"
+              >
+                How to verify
+              </Link>
+            </p>
+          </div>
         </footer>
       </body>
     </html>

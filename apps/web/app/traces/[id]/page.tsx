@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { getContext } from "@/context";
@@ -8,6 +7,7 @@ import { Checks } from "@/ui/checks";
 import { CopyButton } from "@/ui/copy-button";
 import { chainName, cn, formatUsdc, formatUtc, humanize, shortHash } from "@/ui/format";
 import { LiveRefresh } from "@/ui/live-refresh";
+import { requestOrigin } from "@/ui/origin";
 import { RouteRail } from "@/ui/route-rail";
 import { headline, isLive, stationsFor } from "@/ui/stations";
 
@@ -154,7 +154,7 @@ export default async function TracePage({ params }: Props) {
       </div>
 
       <Observations view={view} />
-      <Evidence view={view} origin={await origin()} />
+      <Evidence view={view} origin={await requestOrigin()} />
     </article>
   );
 }
@@ -258,15 +258,6 @@ function Observations({ view }: { view: TraceView }) {
       </div>
     </section>
   );
-}
-
-async function origin(): Promise<string> {
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
-  const proto =
-    h.get("x-forwarded-proto") ??
-    (host.startsWith("localhost") || host.startsWith("127.") ? "http" : "https");
-  return `${proto}://${host}`;
 }
 
 function Evidence({ view, origin }: { view: TraceView; origin: string }) {

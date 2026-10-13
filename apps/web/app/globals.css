@@ -21,8 +21,29 @@
   color-scheme: light;
 }
 
+/*
+ * Dark tokens apply when the visitor chose dark (data-theme="dark", set by the theme toggle), or
+ * when they made no choice and the OS prefers dark. Keep the two blocks below identical.
+ */
+:root[data-theme="dark"] {
+  --paper: #0f1a2e;
+  --sheet: #15223a;
+  --ink: #e6ecf3;
+  --ink-soft: #9fb0c6;
+  --rule: #2c3d5a;
+  --accent: #5b9fe6;
+  --accent-ink: #0b1526;
+  --ok: #4cc38a;
+  --stuck: #e0b04a;
+  --fail: #f2766b;
+  --ok-wash: #173a2c;
+  --stuck-wash: #3a2f15;
+  --fail-wash: #3d1d1e;
+  color-scheme: dark;
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --paper: #0f1a2e;
     --sheet: #15223a;
     --ink: #e6ecf3;

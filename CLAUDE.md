@@ -116,6 +116,13 @@ pnpm isn't installed globally here, so run it as `npx pnpm@10.18.3 …` (the ver
   - `LiveRefresh` re-renders every 5 s while the trace can still change.
   - The design tokens are in `app/globals.css`, with matching light and dark palettes.
   - Don't apply tabular figures (`tnum` / `tabular-nums`) to text set in Schibsted Grotesk: the font widens punctuation under it.
+  - Theme:
+    - Light tokens are on `:root`. Dark tokens apply under `:root[data-theme="dark"]`, and under `prefers-color-scheme: dark` when `data-theme` isn't `"light"`. Keep the two dark blocks identical.
+    - `ThemeToggle` (`src/ui/theme-toggle.tsx`) cycles System → Light → Dark and stores the choice in `localStorage["sentinel-theme"]`. `THEME_BOOT_SCRIPT` applies it before first paint.
+  - API docs (`/docs/api`, `src/ui/api-docs/`) are generated from `openApiDocument()` plus `meta.ts`, which holds groups, plain-language descriptions and examples.
+    - `test/api-docs.test.ts` fails if an operation has no `meta.ts` entry, so add one whenever you add an endpoint.
+    - Request field notes come from zod `.describe()` in `src/api/schemas.ts`.
+  - The footer explains and links the public signing key (`/.well-known/sentinel-key.json`); the header has only "API" and the theme toggle.
 
 - Security conventions:
   - **Every** error that is logged or persisted goes through `errorText()` or `redact()` from `@sentinel/config`. viem errors embed RPC URLs, and the API key lives in the URL path. `parseEnv` registers secret env values automatically.

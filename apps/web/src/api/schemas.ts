@@ -9,16 +9,28 @@ export const chainKey = z.enum(["base", "arc"]);
 
 export const createTraceBody = z
   .object({
-    sourceTxHash: txHash,
-    sourceChain: chainKey,
+    sourceTxHash: txHash.describe("Hash of the transaction that burned USDC (DepositForBurn)."),
+    sourceChain: chainKey.describe("Chain the burn happened on."),
     /** Requires an API key: lets the integrating app hold completion until it confirms. */
-    requireAppConfirmation: z.boolean().optional(),
+    requireAppConfirmation: z
+      .boolean()
+      .optional()
+      .describe("Needs an API key. The trace then waits at Minted until your app calls /confirm."),
   })
   .strict();
 
 export const traceLookupQuery = z.object({ sourceTxHash: txHash, sourceChain: chainKey });
 
-export const confirmBody = z.object({ reference: z.string().min(1).max(200).optional() }).strict();
+export const confirmBody = z
+  .object({
+    reference: z
+      .string()
+      .min(1)
+      .max(200)
+      .optional()
+      .describe("Your own id for the credit (order, ledger entry). Up to 200 characters."),
+  })
+  .strict();
 
 const iso = z.string().describe("ISO-8601 timestamp");
 const hex = z.string().describe("0x-prefixed hex");
