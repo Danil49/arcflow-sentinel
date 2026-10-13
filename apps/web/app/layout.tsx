@@ -38,11 +38,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         >
           Skip to content
         </a>
-        <header className="mx-auto flex max-w-6xl items-baseline justify-between gap-4 px-5 pt-6 sm:px-8">
+        <header className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 pt-6 sm:px-8">
           <Link href="/" className="text-lg font-bold tracking-tight">
             ArcFlow Sentinel
           </Link>
-          <nav className="flex items-baseline gap-5 text-sm text-ink-soft">
+          {/* items-center, not baseline: the toggle is an inline-flex with an icon, whose baseline
+              is the icon's bottom edge, which pushed it off the "API" text line. */}
+          <nav className="flex items-center gap-5 text-sm leading-5 text-ink-soft">
             <Link href="/docs/api" className="hover:text-ink">
               API
             </Link>
