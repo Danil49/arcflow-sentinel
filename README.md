@@ -15,6 +15,18 @@ For each transfer, Sentinel:
 
 It is not a block explorer. It never holds user funds. The only transactions it sends are its own evidence anchors.
 
+## Why it's useful
+
+A CCTP transfer touches three systems: a burn on the source chain, Circle's attestation service, and a mint on the destination chain. Each block explorer shows only its own piece. When a user asks "where is my money?", someone has to open three tools, match a nonce across them by hand, and still can't prove anything afterwards.
+
+Sentinel does that work once, continuously, and hands back an answer:
+
+- **One status instead of three explorers.** Paste a burn hash and see exactly which step the transfer is on, with chain links for every piece of evidence.
+- **Problems are caught, not discovered later.** Deadlines per step flag transfers that are stalled (for example signed but never minted), and the five checks catch real failures: a wrong amount, recipient or route, or a double completion.
+- **Proof that doesn't depend on trusting us.** Each trace exports a signed evidence file that anyone can verify offline, optionally anchored on Arc so its existence at that time is provable. That's useful for support tickets, disputes and audits.
+- **Easy to build on.** A REST API and signed, ordered webhooks let exchanges, wallets and apps react to status changes instead of polling explorers.
+- **Safe to run.** It's read-only: it never holds or moves user funds, and its only on-chain action is writing evidence hashes.
+
 ## What it does
 
 - **Lifecycle:**
@@ -82,13 +94,67 @@ Exit codes: 0 valid, 1 invalid, 2 usage error.
 
 ## Architecture
 
+```mermaid
+flowchart LR
+  subgraph IN["Inputs, read-only"]
+    USER(["User or app<br/>POST /api/traces"])
+    SRC["Source chain<br/>DepositForBurn, MessageSent"]
+    IRIS["Circle Iris API<br/>attestation, nonce"]
+    DST["Destination chain<br/>MessageReceived, MintAndWithdraw"]
+  end
+
+  subgraph WK["Worker jobs"]
+    COL["Collectors, optional<br/>cursors, reorg checks"]
+    CREATE["createTraces<br/>decode burn, idempotent"]
+    REFRESH["refreshTrace<br/>fetch what the step needs"]
+    LOOKUP["findNonceUsedBlock<br/>binary search, usedNonces"]
+  end
+
+  EV[("Postgres<br/>every observation, stored once")]
+
+  subgraph CORE["Core, pure"]
+    REDUCE{{"reduceLifecycle<br/>dedupe, order, deadlines"}}
+    INV["Five invariants"]
+  end
+
+  SAVE["saveLifecycle<br/>status, checks, webhook outbox<br/>in one transaction"]
+
+  subgraph OUT["Outputs"]
+    API["REST API and UI"]
+    HOOKS["Webhooks<br/>signed, ordered, retried"]
+    SEAL["Evidence bundle<br/>canonical JSON, hashes, Ed25519"]
+    REG[("EvidenceRegistry<br/>on Arc")]
+    VERIFY["verify-evidence<br/>anyone, offline"]
+  end
+
+  USER --> CREATE
+  SRC --> CREATE
+  SRC -.-> COL
+  DST -.-> COL
+  COL -.->|trace.create| CREATE
+  CREATE -->|trace.refresh| REFRESH
+  IRIS --> REFRESH
+  REFRESH --> LOOKUP
+  DST --> LOOKUP
+  CREATE --> EV
+  REFRESH --> EV
+  LOOKUP --> EV
+  COL -.-> EV
+  EV --> REDUCE --> INV --> SAVE
+  SAVE --> API
+  SAVE --> HOOKS
+  SAVE --> SEAL
+  SEAL -->|evidence.anchor| REG
+  SEAL --> VERIFY
+  REG -.-> VERIFY
 ```
-Arc RPC ─┐                                   ┌─► REST API / UI (apps/web, Next.js 15)
-Base RPC ┼─► collectors / trace steps ─► Postgres ─► lifecycle reducer + invariants (packages/core)
-Iris API ┘   (apps/worker)               (packages/db)     │
-                                                           ├─► webhooks (outbox, HMAC, ordered)
-                                                           └─► evidence (packages/evidence) ─► EvidenceRegistry on Arc
-```
+
+**How a transfer moves through it:**
+
+1. A burn hash arrives, from a user, an app, or the optional collectors. Sentinel decodes the CCTP burn from the source receipt and stores it.
+2. The `trace.refresh` job asks Iris for the attestation, which carries the nonce Circle assigns. With the nonce, it finds the exact destination block by binary search over `usedNonces`, so no wide log scans are needed.
+3. Every observation is stored once. The pure `reduceLifecycle` function turns the stored set into one status and five check results, independent of arrival order or duplicates.
+4. Each status change is saved together with its webhook outbox entries. The UI and API read the result, and evidence bundles are sealed from the same data and optionally anchored on Arc.
 
 | Package              | Role                                                                                                           |
 | -------------------- | -------------------------------------------------------------------------------------------------------------- |
