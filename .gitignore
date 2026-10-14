@@ -20,3 +20,9 @@ skills-lock.json
 # Deployment secrets and backups (see docs/self-hosting.md)
 worker.env
 backups/
+
+# Custom scripts
+scripts/
+
+# Custom docs
+docs/submission

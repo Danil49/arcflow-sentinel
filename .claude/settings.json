@@ -49,8 +49,7 @@
       "Bash(git commit *-n *)",
       "Bash(sudo *)",
       "Bash(chmod 777 *)"
-    ],
-    "ask": ["Bash(rm -rf *)"]
+    ]
   },
   "enabledPlugins": {
     "circle-skills@circle": true,
