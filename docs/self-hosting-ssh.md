@@ -500,6 +500,12 @@ scp /opt/arcflow-sentinel/deploy/tunnel/Caddyfile.vps admin@VPS_IP:/tmp/Caddyfil
 ```sh
 sudo sed -i 's/sentinel.example.com/YOUR_DOMAIN/' /tmp/Caddyfile
 sudo install -m 644 /tmp/Caddyfile /etc/caddy/Caddyfile
+
+sudo install -d -o caddy -g caddy -m 750 /var/log/caddy
+sudo touch /var/log/caddy/sentinel.log
+sudo chown caddy:caddy /var/log/caddy/sentinel.log
+sudo chmod 640 /var/log/caddy/sentinel.log
+
 sudo caddy validate --config /etc/caddy/Caddyfile        # "Valid configuration"
 sudo systemctl reload caddy
 journalctl -u caddy -n 20 --no-pager | grep -iE 'certificate|error'
