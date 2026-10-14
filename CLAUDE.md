@@ -136,6 +136,11 @@ pnpm isn't installed globally here, so run it as `npx pnpm@10.18.3 …` (the ver
   - `ANCHOR_PRIVATE_KEY` goes in the worker-only `worker.env`.
   - Backups: `deploy/backup.sh`. Anchor account check: `pnpm --filter @sentinel/worker anchor-status`.
   - The VPS guide is `docs/self-hosting.md`.
+- Home server behind a VPS proxy (`docs/self-hosting-ssh.md`):
+  - The app runs at home with `compose.tunnel.yaml`: web on `127.0.0.1:3000` only, `TRUST_PROXY=true`, no Caddy.
+  - frp v0.71.0 (configs in `deploy/tunnel/`) carries VPS `127.0.0.1:8080` to home `:3000` and VPS `127.0.0.1:2222` to home `:22`. It uses a token file and TLS pinned to a private CA (`serverName` `frps.internal`).
+  - On the VPS, Caddy terminates HTTPS (`deploy/tunnel/Caddyfile.vps`, with a 503 maintenance page). frps binds the tunnelled ports to loopback only (`proxyBindAddr`).
+  - A watchdog timer checks the public URL and restarts frpc or the containers. Keep the guide's inline VPS configs in sync with `deploy/tunnel/`.
 - `parseEnv` treats empty values (`NAME=`) as unset. Keep it that way: deployments copy `.env.example` with blank fields.
 - Never print `compose config` output: it inlines `.env` secrets.
 - Containers: `podman compose up -d --build`.

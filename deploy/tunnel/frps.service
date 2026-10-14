@@ -1,0 +1,25 @@
+# /etc/systemd/system/frps.service (VPS)
+[Unit]
+Description=frp server (ArcFlow Sentinel tunnel)
+After=network-online.target
+Wants=network-online.target
+# Never stop retrying, however often it restarts.
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=frp
+Group=frp
+ExecStart=/usr/local/bin/frps -c /etc/frp/frps.toml
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+# Hardening: frps needs no privileges (port 7000 is unprivileged).
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadOnlyPaths=/etc/frp
+
+[Install]
+WantedBy=multi-user.target

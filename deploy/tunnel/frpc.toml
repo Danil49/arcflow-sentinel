@@ -1,0 +1,39 @@
+# frp CLIENT, on the home server: /etc/frp/frpc.toml (see docs/self-hosting-ssh.md)
+serverAddr = "VPS_PUBLIC_IP"         # replace: the VPS's public IPv4 address
+serverPort = 7000
+
+# Never give up: keep retrying the login if the VPS or the internet is down.
+loginFailExit = false
+
+auth.method = "token"
+auth.tokenSource.type = "file"
+auth.tokenSource.file.path = "/etc/frp/token"
+
+# TLS to the VPS, verifying its certificate against the pinned CA (Stage 5.3).
+transport.tls.enable = true
+transport.tls.trustedCaFile = "/etc/frp/tls/ca.crt"
+transport.tls.serverName = "frps.internal"
+transport.poolCount = 2
+
+log.level = "info"
+
+# Website and API: VPS 127.0.0.1:8080 -> this host 127.0.0.1:3000 (the web container).
+[[proxies]]
+name = "sentinel-web"
+type = "tcp"
+localIP = "127.0.0.1"
+localPort = 3000
+remotePort = 8080
+# If the app stops answering, frpc withdraws the proxy and Caddy shows the maintenance page.
+healthCheck.type = "tcp"
+healthCheck.timeoutSeconds = 3
+healthCheck.maxFailed = 3
+healthCheck.intervalSeconds = 10
+
+# Admin SSH to this machine from anywhere: ssh -J <vps> -p 2222 <user>@127.0.0.1
+[[proxies]]
+name = "sentinel-ssh"
+type = "tcp"
+localIP = "127.0.0.1"
+localPort = 22
+remotePort = 2222

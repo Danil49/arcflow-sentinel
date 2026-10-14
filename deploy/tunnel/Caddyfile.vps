@@ -1,0 +1,47 @@
+# VPS reverse proxy: /etc/caddy/Caddyfile (see docs/self-hosting-ssh.md).
+# Replace sentinel.example.com with your domain. Caddy obtains and renews the certificate.
+
+sentinel.example.com {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	# 127.0.0.1:8080 is the frp tunnel to the home server. Caddy replaces X-Forwarded-For with
+	# the real client address, which the app trusts for per-client rate limits.
+	reverse_proxy 127.0.0.1:8080 {
+		# Fail fast while the home server is offline instead of hanging requests.
+		transport http {
+			dial_timeout 5s
+		}
+	}
+
+	# Friendly page when the tunnel or the home server is down.
+	handle_errors 502 503 504 {
+		header Content-Type "text/html; charset=utf-8"
+		header Retry-After "60"
+		respond <<HTML
+			<!doctype html><html lang="en"><meta charset="utf-8">
+			<meta name="viewport" content="width=device-width,initial-scale=1">
+			<title>ArcFlow Sentinel is briefly unavailable</title>
+			<body style="font-family:system-ui,sans-serif;background:#eef2f4;color:#14213d;margin:0;padding:12vh 24px">
+			<h1 style="font-size:2rem;margin:0 0 12px">Back in a moment</h1>
+			<p style="max-width:52ch;line-height:1.5">ArcFlow Sentinel's server is restarting or reconnecting. Your traces are safe; try again in a minute.</p>
+			</body></html>
+			HTML 503
+	}
+
+	log {
+		output file /var/log/caddy/sentinel.log {
+			roll_size 20MiB
+			roll_keep 5
+		}
+		format json
+	}
+}

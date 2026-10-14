@@ -1,0 +1,22 @@
+# /etc/systemd/system/frpc.service (home server)
+[Unit]
+Description=frp client (ArcFlow Sentinel tunnel to the VPS)
+After=network-online.target docker.service
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=frp
+Group=frp
+ExecStart=/usr/local/bin/frpc -c /etc/frp/frpc.toml
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadOnlyPaths=/etc/frp
+
+[Install]
+WantedBy=multi-user.target

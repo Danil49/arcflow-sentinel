@@ -1,0 +1,9 @@
+# /etc/systemd/system/tunnel-watchdog.service (home server)
+[Unit]
+Description=ArcFlow Sentinel tunnel watchdog
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/default/sentinel-watchdog
+ExecStart=/opt/arcflow-sentinel/deploy/tunnel/watchdog.sh

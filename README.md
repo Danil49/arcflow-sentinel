@@ -53,7 +53,7 @@ npx pnpm@10.18.3 --filter @sentinel/worker start       # job runner (+ collector
 npx pnpm@10.18.3 --filter @sentinel/web dev            # http://localhost:3000
 ```
 
-To run everything in containers, or to deploy to a VPS with HTTPS, backups and monitoring, follow [Self-hosting on a VPS](docs/self-hosting.md).
+To run everything in containers, or to deploy to a VPS with HTTPS, backups and monitoring, follow [Self-hosting on a VPS](docs/self-hosting.md), or [at home behind a small VPS proxy](docs/self-hosting-ssh.md).
 
 Trace a transfer by pasting its burn transaction hash into the UI, or with:
 

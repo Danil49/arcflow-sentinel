@@ -1,0 +1,22 @@
+# frp SERVER, on the VPS: /etc/frp/frps.toml (see docs/self-hosting-ssh.md)
+bindAddr = "0.0.0.0"
+bindPort = 7000                      # the only port frpc dials; open it in ufw
+
+# Tunnelled ports listen on the VPS loopback only. Caddy reaches 8080 locally; you reach 2222
+# through `ssh -J`. Nothing tunnelled is exposed to the internet directly.
+proxyBindAddr = "127.0.0.1"
+allowPorts = [ { single = 8080 }, { single = 2222 } ]
+maxPortsPerClient = 2
+
+auth.method = "token"
+auth.tokenSource.type = "file"
+auth.tokenSource.file.path = "/etc/frp/token"
+
+# Only TLS connections, with a certificate the client pins (Stage 5.3).
+transport.tls.force = true
+transport.tls.certFile = "/etc/frp/tls/server.crt"
+transport.tls.keyFile = "/etc/frp/tls/server.key"
+
+# Logs go to journald (journalctl -u frps). Don't tell clients why a login failed.
+log.level = "info"
+detailedErrorsToClient = false

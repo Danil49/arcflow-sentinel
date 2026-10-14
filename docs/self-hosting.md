@@ -2,6 +2,8 @@
 
 This guide takes a fresh VPS to a production ArcFlow Sentinel at `https://<your-domain>`. It covers automatic HTTPS, backups and monitoring. Follow the stages in order; each ends with a check.
 
+To run the app on a home server (e.g. an Ubuntu VM in VMware) with only a small VPS as the public proxy, follow [Self-hosting at home behind a VPS](self-hosting-ssh.md) instead.
+
 Everything runs in containers from this repository:
 
 ```

@@ -1,0 +1,36 @@
+# Home-server overrides for the "VPS proxy + frp tunnel" setup (docs/self-hosting-ssh.md).
+# Use together with compose.yaml:
+#   docker compose -f compose.yaml -f compose.tunnel.yaml up -d --build
+# TLS terminates on the VPS (Caddy). Here the app listens on 127.0.0.1:3000 only, where frpc
+# picks it up; nothing on this machine is reachable from the LAN or the internet.
+
+x-logging: &logging
+  logging:
+    driver: json-file
+    options: { max-size: "20m", max-file: "5" }
+
+services:
+  web:
+    # Loopback only: frpc (on this host) is the only client. Never publish on 0.0.0.0.
+    ports: !override ["127.0.0.1:3000:3000"]
+    environment:
+      # The VPS Caddy replaces X-Forwarded-For with the real client address, and only the
+      # tunnel can reach this port, so the header is trustworthy for rate limiting.
+      TRUST_PROXY: "true"
+    deploy: { resources: { limits: { memory: 1g } } }
+    <<: *logging
+
+  worker:
+    # ANCHOR_PRIVATE_KEY lives only in worker.env, never in the .env that web also reads.
+    env_file:
+      - .env
+      - worker.env
+    deploy: { resources: { limits: { memory: 768m } } }
+    <<: *logging
+
+  migrate:
+    <<: *logging
+
+  postgres:
+    deploy: { resources: { limits: { memory: 1g } } }
+    <<: *logging
